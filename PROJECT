@@ -1,4 +1,4 @@
-domain: kalypso.scheduler
+domain: kalypso.io
 layout:
 - go.kubebuilder.io/v3
 projectName: kalypso-scheduler
@@ -8,9 +8,25 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: kalypso.scheduler
+  domain: kalypso.io
   group: kalypso
   kind: DeploymentTarget
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kalypso.io
+  group: kalypso
+  kind: ClusterType
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kalypso.io
+  group: kalypso
+  kind: SchedulingPolicy
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
 version: "3"

@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - kalypso.kalypso.io
+  resources:
+  - deploymenttargets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kalypso.kalypso.io
+  resources:
+  - deploymenttargets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kalypso.kalypso.io
+  resources:
+  - deploymenttargets/status
+  verbs:
+  - get
+  - patch
+  - update

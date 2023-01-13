@@ -1,31 +1,27 @@
-# permissions for end users to edit deploymenttargets.
+# permissions for end users to view clustertypes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: deploymenttarget-editor-role
+    app.kubernetes.io/instance: clustertype-viewer-role
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: kalypso-scheduler
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
-  name: deploymenttarget-editor-role
+  name: clustertype-viewer-role
 rules:
 - apiGroups:
   - kalypso.kalypso.io
   resources:
-  - deploymenttargets
+  - clustertypes
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - kalypso.kalypso.io
   resources:
-  - deploymenttargets/status
+  - clustertypes/status
   verbs:
   - get

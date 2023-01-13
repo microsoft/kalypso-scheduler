@@ -1,12 +1,12 @@
 apiVersion: kalypso.kalypso.io/v1alpha1
-kind: DeploymentTarget
+kind: SchedulingPolicy
 metadata:
   labels:
-    app.kubernetes.io/name: deploymenttarget
-    app.kubernetes.io/instance: deploymenttarget-sample
+    app.kubernetes.io/name: schedulingpolicy
+    app.kubernetes.io/instance: schedulingpolicy-sample
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: kalypso-scheduler
-  name: deploymenttarget-sample
+  name: schedulingpolicy-sample
 spec:
   # TODO(user): Add fields here

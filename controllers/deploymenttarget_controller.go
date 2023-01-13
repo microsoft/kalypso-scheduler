@@ -33,9 +33,9 @@ type DeploymentTargetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=kalypso.kalypso.scheduler,resources=deploymenttargets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kalypso.kalypso.scheduler,resources=deploymenttargets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kalypso.kalypso.scheduler,resources=deploymenttargets/finalizers,verbs=update
+//+kubebuilder:rbac:groups=kalypso.kalypso.io,resources=deploymenttargets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=kalypso.kalypso.io,resources=deploymenttargets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=kalypso.kalypso.io,resources=deploymenttargets/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
