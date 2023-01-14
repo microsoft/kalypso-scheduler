@@ -1,20 +1,20 @@
-# permissions for end users to view schedulingpolicies.
+# permissions for end users to view workloads.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: schedulingpolicy-viewer-role
+    app.kubernetes.io/instance: workload-viewer-role
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: kalypso-scheduler
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
-  name: schedulingpolicy-viewer-role
+  name: workload-viewer-role
 rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
-  - schedulingpolicies
+  - workloads
   verbs:
   - get
   - list
@@ -22,6 +22,6 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
-  - schedulingpolicies/status
+  - workloads/status
   verbs:
   - get

@@ -1,4 +1,4 @@
-apiVersion: kalypso.kalypso.io/v1alpha1
+apiVersion: scheduler.kalypso.io/v1alpha1
 kind: ClusterType
 metadata:
   labels:
@@ -7,6 +7,9 @@ metadata:
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: kalypso-scheduler
-  name: clustertype-sample
+    region: east-us
+    restricted: "true"
+    edge: "true"
+  name: drone
 spec:
-  # TODO(user): Add fields here
+  reconciler: arc-flux

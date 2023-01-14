@@ -12,7 +12,7 @@ metadata:
   name: clustertype-editor-role
 rules:
 - apiGroups:
-  - kalypso.kalypso.io
+  - scheduler.kalypso.io
   resources:
   - clustertypes
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kalypso.kalypso.io
+  - scheduler.kalypso.io
   resources:
   - clustertypes/status
   verbs:

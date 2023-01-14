@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: clustertypes.cluster.kalypso.io
+  name: workloads.scheduler.kalypso.io
 spec:
-  group: cluster.kalypso.io
+  group: scheduler.kalypso.io
   names:
-    kind: ClusterType
-    listKind: ClusterTypeList
-    plural: clustertypes
-    singular: clustertype
+    kind: Workload
+    listKind: WorkloadList
+    plural: workloads
+    singular: workload
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterType is the Schema for the clustertypes API
+        description: Workload is the Schema for the workloads API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,16 +33,38 @@ spec:
           metadata:
             type: object
           spec:
-            description: ClusterTypeSpec defines the desired state of ClusterType
+            description: WorkloadSpec defines the desired state of Workload
             properties:
-              Reconciler:
-                minLength: 0
-                type: string
-            required:
-            - Reconciler
+              deploymentTargets:
+                items:
+                  properties:
+                    environment:
+                      minLength: 0
+                      type: string
+                    manifests:
+                      properties:
+                        branch:
+                          minLength: 0
+                          type: string
+                        path:
+                          minLength: 0
+                          type: string
+                        repo:
+                          minLength: 0
+                          type: string
+                      required:
+                      - branch
+                      - path
+                      - repo
+                      type: object
+                  required:
+                  - environment
+                  - manifests
+                  type: object
+                type: array
             type: object
           status:
-            description: ClusterTypeStatus defines the observed state of ClusterType
+            description: WorkloadStatus defines the observed state of Workload
             type: object
         type: object
     served: true

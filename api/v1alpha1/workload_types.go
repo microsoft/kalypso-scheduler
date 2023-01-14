@@ -23,14 +23,18 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ClusterTypeSpec defines the desired state of ClusterType
-type ClusterTypeSpec struct {
-	//+kubebuilder:validation:MinLength=0
-	Reconciler string `json:"reconciler"`
+// WorkloadSpec defines the desired state of Workload
+type WorkloadSpec struct {
+	DeploymentTargets []DeploymentTargetDetail `json:"deploymentTargets,omitempty"`
 }
 
-// ClusterTypeStatus defines the observed state of ClusterType
-type ClusterTypeStatus struct {
+type DeploymentTargetDetail struct {
+	metav1.ObjectMeta    `json:",inline"`
+	DeploymentTargetSpec `json:",inline"`
+}
+
+// WorkloadStatus defines the observed state of Workload
+type WorkloadStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -38,24 +42,24 @@ type ClusterTypeStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// ClusterType is the Schema for the clustertypes API
-type ClusterType struct {
+// Workload is the Schema for the workloads API
+type Workload struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterTypeSpec   `json:"spec,omitempty"`
-	Status ClusterTypeStatus `json:"status,omitempty"`
+	Spec   WorkloadSpec   `json:"spec,omitempty"`
+	Status WorkloadStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// ClusterTypeList contains a list of ClusterType
-type ClusterTypeList struct {
+// WorkloadList contains a list of Workload
+type WorkloadList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterType `json:"items"`
+	Items           []Workload `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterType{}, &ClusterTypeList{})
+	SchemeBuilder.Register(&Workload{}, &WorkloadList{})
 }

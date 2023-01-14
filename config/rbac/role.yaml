@@ -6,9 +6,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - kalypso.kalypso.io
+  - scheduler.kalypso.io
   resources:
-  - deploymenttargets
+  - assignments
   verbs:
   - create
   - delete
@@ -18,15 +18,67 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kalypso.kalypso.io
+  - scheduler.kalypso.io
   resources:
-  - deploymenttargets/finalizers
+  - assignments/finalizers
   verbs:
   - update
 - apiGroups:
-  - kalypso.kalypso.io
+  - scheduler.kalypso.io
   resources:
-  - deploymenttargets/status
+  - assignments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads/status
   verbs:
   - get
   - patch

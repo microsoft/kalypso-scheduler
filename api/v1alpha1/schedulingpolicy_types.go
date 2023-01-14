@@ -25,24 +25,19 @@ import (
 
 // SchedulingPolicySpec defines the desired state of SchedulingPolicy
 type SchedulingPolicySpec struct {
-	//+kubebuilder:validation:Minimum=0
-	WorkloadSelector WorkloadSelectorSpec `json:" workloadSelector"`
-
-	//+kubebuilder:validation:Minimum=0
-	ClusterTypeSelector ClusterTypeSelectorSpec `json:" clusterTypeSelector"`
+	DeploymentTargetSelector DeploymentTargetSelectorSpec `json:"deploymentTargetSelector"`
+	ClusterTypeSelector      ClusterTypeSelectorSpec      `json:"clusterTypeSelector"`
 }
 
-type WorkloadSelectorSpec struct {
-	//+kubebuilder:validation:MinLength=0
-	Workspace string `json:"workspace"`
+type DeploymentTargetSelectorSpec struct {
+	//+optional
+	Workspace string `json:"workspace,omitempty"`
 
-	//+kubebuilder:validation:MinLength=0
-	LabelSelector metav1.LabelSelector `json:"lavelSelector"`
+	LabelSelector metav1.LabelSelector `json:"labelSelector"`
 }
 
 type ClusterTypeSelectorSpec struct {
-	//+kubebuilder:validation:MinLength=0
-	LabelSelector metav1.LabelSelector `json:"lavelSelector"`
+	LabelSelector metav1.LabelSelector `json:"labelSelector"`
 }
 
 // SchedulingPolicyStatus defines the observed state of SchedulingPolicy

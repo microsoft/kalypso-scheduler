@@ -21,34 +21,27 @@ import (
 )
 
 const (
-	WorkspaceLabel = "workspace"
-	WorkloadLabel  = "workload"
+	AssignmentKind                  = "Assignment"
+	AssignmentSchedulingPolicyLabel = "scheduling-policy"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// DeploymentTargetSpec defines the desired state of DeploymentTarget
-type DeploymentTargetSpec struct {
+// AssignmentSpec defines the desired state of Assignment
+type AssignmentSpec struct {
 	//+kubebuilder:validation:MinLength=0
-	Environment string `json:"environment"`
+	Workload string `json:"workload"`
 
-	Manifests ManifestsSpec `json:"manifests"`
+	//+kubebuilder:validation:MinLength=0
+	DeploymentTarget string `json:"deploymentTarget"`
+
+	//+kubebuilder:validation:MinLength=0
+	ClusterType string `json:"clusterType"`
 }
 
-type ManifestsSpec struct {
-	//+kubebuilder:validation:MinLength=0
-	Repo string `json:"repo"`
-
-	//+kubebuilder:validation:MinLength=0
-	Branch string `json:"branch"`
-
-	//+kubebuilder:validation:MinLength=0
-	Path string `json:"path"`
-}
-
-// DeploymentTargetStatus defines the observed state of DeploymentTarget
-type DeploymentTargetStatus struct {
+// AssignmentStatus defines the observed state of Assignment
+type AssignmentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -56,34 +49,24 @@ type DeploymentTargetStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// DeploymentTarget is the Schema for the deploymenttargets API
-type DeploymentTarget struct {
+// Assignment is the Schema for the assignments API
+type Assignment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DeploymentTargetSpec   `json:"spec,omitempty"`
-	Status DeploymentTargetStatus `json:"status,omitempty"`
+	Spec   AssignmentSpec   `json:"spec,omitempty"`
+	Status AssignmentStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// DeploymentTargetList contains a list of DeploymentTarget
-type DeploymentTargetList struct {
+// AssignmentList contains a list of Assignment
+type AssignmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []DeploymentTarget `json:"items"`
-}
-
-// get deployment target workspace
-func (dt *DeploymentTarget) GetWorkspace() string {
-	return dt.Labels[WorkspaceLabel]
-}
-
-// get deployment target workload
-func (dt *DeploymentTarget) GetWorkload() string {
-	return dt.Labels[WorkloadLabel]
+	Items           []Assignment `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&DeploymentTarget{}, &DeploymentTargetList{})
+	SchemeBuilder.Register(&Assignment{}, &AssignmentList{})
 }

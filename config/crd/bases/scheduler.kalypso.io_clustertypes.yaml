@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: deploymenttargets.workload.kalypso.io
+  name: clustertypes.scheduler.kalypso.io
 spec:
-  group: workload.kalypso.io
+  group: scheduler.kalypso.io
   names:
-    kind: DeploymentTarget
-    listKind: DeploymentTargetList
-    plural: deploymenttargets
-    singular: deploymenttarget
+    kind: ClusterType
+    listKind: ClusterTypeList
+    plural: clustertypes
+    singular: clustertype
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DeploymentTarget is the Schema for the deploymenttargets API
+        description: ClusterType is the Schema for the clustertypes API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,15 +33,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: DeploymentTargetSpec defines the desired state of DeploymentTarget
+            description: ClusterTypeSpec defines the desired state of ClusterType
             properties:
-              foo:
-                description: Foo is an example field of DeploymentTarget. Edit deploymenttarget_types.go
-                  to remove/update
+              reconciler:
+                minLength: 0
                 type: string
+            required:
+            - reconciler
             type: object
           status:
-            description: DeploymentTargetStatus defines the observed state of DeploymentTarget
+            description: ClusterTypeStatus defines the observed state of ClusterType
             type: object
         type: object
     served: true

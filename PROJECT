@@ -9,24 +9,42 @@ resources:
     namespaced: true
   controller: true
   domain: kalypso.io
-  group: kalypso
-  kind: DeploymentTarget
+  group: scheduler
+  kind: SchedulingPolicy
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   domain: kalypso.io
-  group: kalypso
+  group: scheduler
   kind: ClusterType
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: kalypso.io
-  group: kalypso
-  kind: SchedulingPolicy
+  group: scheduler
+  kind: Workload
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kalypso.io
+  group: scheduler
+  kind: DeploymentTarget
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kalypso.io
+  group: scheduler
+  kind: Assignment
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
 version: "3"
