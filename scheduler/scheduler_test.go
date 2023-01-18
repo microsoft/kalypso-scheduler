@@ -23,7 +23,7 @@ import (
 )
 
 func TestNewScheduler(t *testing.T) {
-	schedulingPolicy := kalypsov1alpha1.SchedulingPolicy{}
+	schedulingPolicy := &kalypsov1alpha1.SchedulingPolicy{}
 	scheduler, err := NewScheduler(schedulingPolicy)
 	if err != nil {
 		t.Errorf("error creating scheduler: %v", err)

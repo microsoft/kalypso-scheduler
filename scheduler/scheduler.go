@@ -27,16 +27,16 @@ import (
 )
 
 type Scheduler interface {
-	SelectClusterTypes(ctx context.Context, allClusterTypes []*kalypsov1alpha1.ClusterType) ([]*kalypsov1alpha1.ClusterType, error)
-	SelectDeploymentTargets(ctx context.Context, allDeploymentTargets []*kalypsov1alpha1.DeploymentTarget) ([]*kalypsov1alpha1.DeploymentTarget, error)
-	IsClusterTypeCompliant(ctx context.Context, clusterType *kalypsov1alpha1.ClusterType) bool
-	IsDeploymentTargetCompliant(ctx context.Context, deploymentTarget *kalypsov1alpha1.DeploymentTarget) bool
-	Schedule(ctx context.Context, clusterTypes []*kalypsov1alpha1.ClusterType, deploymentTargets []*kalypsov1alpha1.DeploymentTarget) ([]*kalypsov1alpha1.Assignment, error)
+	SelectClusterTypes(ctx context.Context, allClusterTypes []kalypsov1alpha1.ClusterType) ([]kalypsov1alpha1.ClusterType, error)
+	SelectDeploymentTargets(ctx context.Context, allDeploymentTargets []kalypsov1alpha1.DeploymentTarget) ([]kalypsov1alpha1.DeploymentTarget, error)
+	IsClusterTypeCompliant(ctx context.Context, clusterType kalypsov1alpha1.ClusterType) bool
+	IsDeploymentTargetCompliant(ctx context.Context, deploymentTarget kalypsov1alpha1.DeploymentTarget) bool
+	Schedule(ctx context.Context, clusterTypes []kalypsov1alpha1.ClusterType, deploymentTargets []kalypsov1alpha1.DeploymentTarget) ([]kalypsov1alpha1.Assignment, error)
 }
 
 // implements Scheduler interface
 type scheduler struct {
-	schedulingPolicy                kalypsov1alpha1.SchedulingPolicy
+	schedulingPolicy                *kalypsov1alpha1.SchedulingPolicy
 	clusterTypesLabelsSelector      labels.Selector
 	deploymentTargetsLabelsSelector labels.Selector
 }
@@ -45,7 +45,7 @@ type scheduler struct {
 var _ Scheduler = (*scheduler)(nil)
 
 // new scheduler function
-func NewScheduler(schedulingPolicy kalypsov1alpha1.SchedulingPolicy) (Scheduler, error) {
+func NewScheduler(schedulingPolicy *kalypsov1alpha1.SchedulingPolicy) (Scheduler, error) {
 	clusterTypesLabelsSelector, err := metav1.LabelSelectorAsSelector(&schedulingPolicy.Spec.ClusterTypeSelector.LabelSelector)
 	if err != nil {
 		return nil, err
@@ -64,9 +64,9 @@ func NewScheduler(schedulingPolicy kalypsov1alpha1.SchedulingPolicy) (Scheduler,
 }
 
 // SelectClusterTypes selects cluster types that match scheduling policy labels
-func (s *scheduler) SelectClusterTypes(ctx context.Context, allClusterTypes []*kalypsov1alpha1.ClusterType) ([]*kalypsov1alpha1.ClusterType, error) {
+func (s *scheduler) SelectClusterTypes(ctx context.Context, allClusterTypes []kalypsov1alpha1.ClusterType) ([]kalypsov1alpha1.ClusterType, error) {
 	// iterate over all cluster types and return the ones that match the labels selector
-	var selectedClusterTypes []*kalypsov1alpha1.ClusterType
+	var selectedClusterTypes []kalypsov1alpha1.ClusterType
 	for _, clusterType := range allClusterTypes {
 		if s.IsClusterTypeCompliant(ctx, clusterType) {
 			selectedClusterTypes = append(selectedClusterTypes, clusterType)
@@ -77,25 +77,25 @@ func (s *scheduler) SelectClusterTypes(ctx context.Context, allClusterTypes []*k
 }
 
 // SelectDeploymentTargets selects deployment targets based on the scheduler implementation
-func (s *scheduler) SelectDeploymentTargets(ctx context.Context, allDeploymentTargets []*kalypsov1alpha1.DeploymentTarget) ([]*kalypsov1alpha1.DeploymentTarget, error) {
+func (s *scheduler) SelectDeploymentTargets(ctx context.Context, allDeploymentTargets []kalypsov1alpha1.DeploymentTarget) ([]kalypsov1alpha1.DeploymentTarget, error) {
 	// iterate over all deployment targets and return the ones that match the labels selector
-	var selectedDeploymentTargets []*kalypsov1alpha1.DeploymentTarget
+	var selectedDeploymentTargets []kalypsov1alpha1.DeploymentTarget
 	for _, deploymentTarget := range allDeploymentTargets {
 		if s.IsDeploymentTargetCompliant(ctx, deploymentTarget) {
 			selectedDeploymentTargets = append(selectedDeploymentTargets, deploymentTarget)
 		}
 	}
 
-	return allDeploymentTargets, nil
+	return selectedDeploymentTargets, nil
 }
 
 // IsClusterTypeCompliant checks if the cluster type is compliant with the scheduler implementation
-func (s *scheduler) IsClusterTypeCompliant(ctx context.Context, clusterType *kalypsov1alpha1.ClusterType) bool {
+func (s *scheduler) IsClusterTypeCompliant(ctx context.Context, clusterType kalypsov1alpha1.ClusterType) bool {
 	return s.clusterTypesLabelsSelector.Matches(labels.Set(clusterType.GetLabels()))
 }
 
 // IsDeploymentTargetCompliant checks if the deployment target is compliant with the scheduler implementation
-func (s *scheduler) IsDeploymentTargetCompliant(ctx context.Context, deploymentTarget *kalypsov1alpha1.DeploymentTarget) bool {
+func (s *scheduler) IsDeploymentTargetCompliant(ctx context.Context, deploymentTarget kalypsov1alpha1.DeploymentTarget) bool {
 	var policyWorkspace = s.schedulingPolicy.Spec.DeploymentTargetSelector.Workspace
 	if policyWorkspace != "" {
 		if policyWorkspace != deploymentTarget.GetWorkspace() {
@@ -107,9 +107,9 @@ func (s *scheduler) IsDeploymentTargetCompliant(ctx context.Context, deploymentT
 }
 
 // Schedule schedules the deployment targets on cluster types
-func (s *scheduler) Schedule(ctx context.Context, clusterTypes []*kalypsov1alpha1.ClusterType, deploymentTargets []*kalypsov1alpha1.DeploymentTarget) ([]*kalypsov1alpha1.Assignment, error) {
+func (s *scheduler) Schedule(ctx context.Context, clusterTypes []kalypsov1alpha1.ClusterType, deploymentTargets []kalypsov1alpha1.DeploymentTarget) ([]kalypsov1alpha1.Assignment, error) {
 
-	var assignments []*kalypsov1alpha1.Assignment
+	var assignments []kalypsov1alpha1.Assignment
 
 	//var selectedDeploymentTargets []kalypsov1alpha1.DeploymentTarget
 	selectedDeploymentTargets, err := s.SelectDeploymentTargets(ctx, deploymentTargets)
@@ -134,9 +134,9 @@ func (s *scheduler) Schedule(ctx context.Context, clusterTypes []*kalypsov1alpha
 }
 
 // assign creates a new Assignment object
-func (s *scheduler) assign(deploymentTarget string, workload string, clusterType string, schedulingPolicy string) *v1alpha1.Assignment {
+func (s *scheduler) assign(deploymentTarget string, workload string, clusterType string, schedulingPolicy string) v1alpha1.Assignment {
 	name := fmt.Sprintf("%s-%s-%s", workload, deploymentTarget, clusterType)
-	assignment := &v1alpha1.Assignment{
+	assignment := v1alpha1.Assignment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha1.AssignmentKind,
 			APIVersion: v1alpha1.GroupVersion.String(),

@@ -7,6 +7,14 @@ metadata:
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: kalypso-scheduler
-  name: deploymenttarget-sample
+    workspace: kaizen-app-team
+    purpose: functional-test
+    edge: "true"
+    workload: hello-world-app
+  name: hello-world-app-functional-test
 spec:
-  # TODO(user): Add fields here
+  environment: dev
+  manifests:
+    repo: https://github.com/microsoft/kalypso-app-gitops
+    branch: dev
+    path: ./functional-test
