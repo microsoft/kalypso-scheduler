@@ -47,4 +47,12 @@ resources:
   kind: Assignment
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kalypso.io
+  group: scheduler
+  kind: Template
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
 version: "3"

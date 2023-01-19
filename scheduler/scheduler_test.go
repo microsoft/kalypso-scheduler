@@ -35,6 +35,57 @@ func TestNewScheduler(t *testing.T) {
 
 func TestSelectClusterTypes(t *testing.T) {
 	// TODO
+	// 1. create a scheduler
+	// 2. create a list of cluster types
+	// 3. call SelectClusterTypes
+	// 4. check the returned list of cluster types
+
+	// // 1. create a scheduler
+	// schedulingPolicy := &kalypsov1alpha1.SchedulingPolicy{}
+	// scheduler, err := NewScheduler(schedulingPolicy)
+	// if err != nil {
+	// 	t.Errorf("error creating scheduler: %v", err)
+	// }
+	// if scheduler == nil {
+	// 	t.Errorf("scheduler is nil")
+	// }
+
+	// // 2. create a list of cluster types
+	// clusterTypes := []kalypsov1alpha1.ClusterType{
+	// 	{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name: "cluster-type-1",
+	// 			Labels: map[string]string{
+	// 				"cluster-type": "cluster-type-1",
+	// 			},
+	// 		},
+	// 	},
+	// 	{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name: "cluster-type-2",
+	// 			Labels: map[string]string{
+	// 				"cluster-type": "cluster-type-2",
+	// 			},
+	// 		},
+	// 	},
+	// 	{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name: "cluster-type-3",
+	// 			Labels: map[string]string{
+	// 				"cluster-type": "cluster-type-3",
+	// 			},
+	// 		},
+	// 	},
+	// }
+
+	// // 3. call SelectClusterTypes
+	// selectedClusterTypes := scheduler.SelectClusterTypes(clusterTypes)
+
+	// // 4. check the returned list of cluster types
+	// if len(selectedClusterTypes) != 1 {
+	// 	t.Errorf("expected 1 cluster type, got %d", len(selectedClusterTypes))
+	// }
+
 }
 
 func TestSelectDeploymentTargets(t *testing.T) {

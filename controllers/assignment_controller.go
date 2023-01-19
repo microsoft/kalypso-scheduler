@@ -18,12 +18,16 @@ package controllers
 
 import (
 	"context"
+	"time"
 
+	meta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 )
 
@@ -37,21 +41,66 @@ type AssignmentReconciler struct {
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Assignment object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.1/pkg/reconcile
 func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	reqLogger := log.FromContext(ctx)
+	reqLogger.Info("=== Reconciling Assignment ===")
+
+	// Fetch the Assignment instance
+	assignment := &schedulerv1alpha1.Assignment{}
+
+	err := r.Get(ctx, req.NamespacedName, assignment)
+	if err != nil {
+		ignroredNotFound := client.IgnoreNotFound(err)
+		if ignroredNotFound != nil {
+			reqLogger.Error(err, "Failed to get Assignment")
+
+		}
+		return ctrl.Result{}, ignroredNotFound
+	}
+
+	// Check if the resource is being deleted
+	if !assignment.ObjectMeta.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	// fetch the templates in the namespace
+	templates := &schedulerv1alpha1.TemplateList{}
+	err = r.List(ctx, templates, client.InNamespace(req.Namespace))
+	if err != nil {
+		r.manageFailure(ctx, reqLogger, assignment, err, "Failed to list ClusterTypes")
+	}
+
+	// log the templates
+	for _, template := range templates.Items {
+		reqLogger.Info("Template", "Name", template.Name)
+		reqLogger.Info("Template", "Manifests", template.Spec.Manifests)
+	}
 
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
+}
+
+// Gracefully handle errors
+func (h *AssignmentReconciler) manageFailure(ctx context.Context, logger logr.Logger, assignment *schedulerv1alpha1.Assignment, err error, message string) (ctrl.Result, error) {
+	logger.Error(err, message)
+
+	//crerate a condition
+	condition := metav1.Condition{
+		Type:    "Configured",
+		Status:  metav1.ConditionFalse,
+		Reason:  "UpdateFailed",
+		Message: err.Error(),
+	}
+
+	meta.SetStatusCondition(&assignment.Status.Conditions, condition)
+
+	updateErr := h.Status().Update(ctx, assignment)
+	if updateErr != nil {
+		logger.Error(updateErr, "Error when updating status. Requeued")
+		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+	}
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

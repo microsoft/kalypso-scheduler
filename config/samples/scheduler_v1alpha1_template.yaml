@@ -1,0 +1,28 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Template
+metadata:
+  labels:
+    app.kubernetes.io/name: template
+    app.kubernetes.io/instance: template-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+  name: argocd
+spec:
+  type: reconciler
+  manifests:
+    - apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: \"{{DEPLOYMENT_TARGET_NAME}}\"
+        namespace: \"{{DEPLOYMENT_TARGET_NAMESPACE}}\"
+        spec:
+          project: default
+          source:
+            repoURL: \"{{DEPLOYMENT_TARGET_REPO}}\" 
+            targetRevision: \"{{DEPLOYMENT_TARGET_BRANCH}}\"
+            path: \"{{DEPLOYMENT_TARGET_PATH}}\"
+          destination:
+            name: defualt
+            namespace: \"{{DEPLOYMENT_TARGET_NAMESPACE}}\"  
+  

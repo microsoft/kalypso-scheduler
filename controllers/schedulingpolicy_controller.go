@@ -23,9 +23,13 @@ import (
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
@@ -38,22 +42,16 @@ type SchedulingPolicyReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies/finalizers,verbs=update
+const (
+	clusterTypeField = "spec.clusterType"
+)
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the SchedulingPolicy object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.1/pkg/reconcile
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies/finalizers,verbs=update
 func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
-	reqLogger.Info("=== Reconciling Scheduling Policy")
+	reqLogger.Info("=== Reconciling Scheduling Policy ===")
 
 	// Fetch the SchedulingPolicy instance
 	schedulingPolicy := &schedulerv1alpha1.SchedulingPolicy{}
@@ -100,9 +98,9 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		reqLogger.Info("Assignment", "name", assignment.Name, "clusterType", assignment.Spec.ClusterType, "deploymentTarget", assignment.Spec.DeploymentTarget)
 	}
 
-	// fetch the list of assignments in the namespace
+	// fetch the list of assignments in the namespace by label that are owned by the scheduling policy
 	assignmentsList := &schedulerv1alpha1.AssignmentList{}
-	err = r.List(ctx, assignmentsList, client.InNamespace(req.Namespace))
+	err = r.List(ctx, assignmentsList, client.InNamespace(req.Namespace), client.MatchingLabels{schedulerv1alpha1.AssignmentSchedulingPolicyLabel: schedulingPolicy.Name})
 	if err != nil {
 		r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list Assignments")
 	}
@@ -111,7 +109,7 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, assignment := range assignmentsList.Items {
 		found := false
 		for _, newAssignment := range assignments {
-			if assignment.Name == newAssignment.Name {
+			if assignment.Spec == newAssignment.Spec {
 				found = true
 				break
 			}
@@ -129,7 +127,7 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, newAssignment := range assignments {
 		found := false
 		for _, assignment := range assignmentsList.Items {
-			if assignment.Name == newAssignment.Name {
+			if assignment.Spec == newAssignment.Spec {
 				found = true
 				break
 			}
@@ -152,9 +150,9 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	condition := metav1.Condition{
-		Type:   "Ready",
+		Type:   "Scheduled",
 		Status: metav1.ConditionTrue,
-		Reason: "Scheduled",
+		Reason: "AssignmentsCreated",
 	}
 	meta.SetStatusCondition(&schedulingPolicy.Status.Conditions, condition)
 
@@ -173,7 +171,7 @@ func (h *SchedulingPolicyReconciler) manageFailure(ctx context.Context, logger l
 
 	//crerate a condition
 	condition := metav1.Condition{
-		Type:    "Ready",
+		Type:    "Scheduled",
 		Status:  metav1.ConditionFalse,
 		Reason:  "UpdateFailed",
 		Message: err.Error(),
@@ -189,9 +187,40 @@ func (h *SchedulingPolicyReconciler) manageFailure(ctx context.Context, logger l
 	return ctrl.Result{}, err
 }
 
+func (r *SchedulingPolicyReconciler) findPolicies(object client.Object) []reconcile.Request {
+	// Find the scheduling policies
+	schedulingPolicies := &schedulerv1alpha1.SchedulingPolicyList{}
+	err := r.List(context.TODO(), schedulingPolicies, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//Create requests for the scheduling policies
+	//TODO: compose an object name on the request to include the cluster type or deployment target name or
+	//just implment controllers for each of those types
+	//keep it as is now for the simplicity
+	requests := make([]reconcile.Request, len(schedulingPolicies.Items))
+	for i, item := range schedulingPolicies.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		}
+	}
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.SchedulingPolicy{}).
+		Owns(&schedulerv1alpha1.Assignment{}).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
+			handler.EnqueueRequestsFromMapFunc(r.findPolicies)).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.DeploymentTarget{}},
+			handler.EnqueueRequestsFromMapFunc(r.findPolicies)).
 		Complete(r)
 }
