@@ -35,10 +35,14 @@ spec:
           spec:
             description: ClusterTypeSpec defines the desired state of ClusterType
             properties:
+              namespaceService:
+                minLength: 0
+                type: string
               reconciler:
                 minLength: 0
                 type: string
             required:
+            - namespaceService
             - reconciler
             type: object
           status:

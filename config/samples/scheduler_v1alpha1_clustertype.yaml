@@ -12,4 +12,5 @@ metadata:
     edge: "true"
   name: drone
 spec:
-  reconciler: arc-flux
+  reconciler: argocd
+  namespaceService: default

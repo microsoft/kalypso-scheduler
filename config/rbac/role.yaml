@@ -8,6 +8,32 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
+  - assignmentpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - assignmentpackages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - assignmentpackages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
   - assignments
   verbs:
   - create

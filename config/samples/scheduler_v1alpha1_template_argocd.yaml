@@ -14,15 +14,15 @@ spec:
     - apiVersion: argoproj.io/v1alpha1
       kind: Application
       metadata:
-        name: \"{{DEPLOYMENT_TARGET_NAME}}\"
-        namespace: \"{{DEPLOYMENT_TARGET_NAMESPACE}}\"
+        name: "{{ .DeploymentTargetName}}"
+        namespace: "{{ .Namespace}}"
         spec:
           project: default
           source:
-            repoURL: \"{{DEPLOYMENT_TARGET_REPO}}\" 
-            targetRevision: \"{{DEPLOYMENT_TARGET_BRANCH}}\"
-            path: \"{{DEPLOYMENT_TARGET_PATH}}\"
+            repoURL: "{{ .Repo}}" 
+            targetRevision: "{{ .Branch}}"
+            path: "{{ .Path}}"
           destination:
             name: defualt
-            namespace: \"{{DEPLOYMENT_TARGET_NAMESPACE}}\"  
+            namespace: "{{ .Namespace}}"  
   

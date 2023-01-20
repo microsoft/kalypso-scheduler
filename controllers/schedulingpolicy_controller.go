@@ -43,7 +43,9 @@ type SchedulingPolicyReconciler struct {
 }
 
 const (
-	clusterTypeField = "spec.clusterType"
+	ClusterTypeField      = "spec.clusterType"
+	ReconcilerField       = "spec.reconciler"
+	NamespaceServiceField = "spec.namespaceService"
 )
 
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -74,20 +76,20 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
 	err = r.List(ctx, clusterTypes, client.InNamespace(req.Namespace))
 	if err != nil {
-		r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list ClusterTypes")
+		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list ClusterTypes")
 	}
 
 	// fetch the list if deployment targets in the namespace
 	deploymentTargets := &schedulerv1alpha1.DeploymentTargetList{}
 	err = r.List(ctx, deploymentTargets, client.InNamespace(req.Namespace))
 	if err != nil {
-		r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list DeploymentTargets")
+		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list DeploymentTargets")
 	}
 
 	// schedule the deployment targets
 	scheduler, err := scheduler.NewScheduler(schedulingPolicy)
 	if err != nil {
-		r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to create scheduler")
+		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to create scheduler")
 	}
 
 	assignments, err := scheduler.Schedule(ctx, clusterTypes.Items, deploymentTargets.Items)
@@ -102,7 +104,7 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	assignmentsList := &schedulerv1alpha1.AssignmentList{}
 	err = r.List(ctx, assignmentsList, client.InNamespace(req.Namespace), client.MatchingLabels{schedulerv1alpha1.AssignmentSchedulingPolicyLabel: schedulingPolicy.Name})
 	if err != nil {
-		r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list Assignments")
+		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list Assignments")
 	}
 
 	// iterate over the existing assignments and delete the ones that are not in the new assignments
@@ -117,7 +119,7 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if !found {
 			err = r.Delete(ctx, &assignment)
 			if err != nil {
-				r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to delete Assignment")
+				return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to delete Assignment")
 			}
 			reqLogger.Info("Deleted Assignment", "name", assignment.Name, "clusterType", assignment.Spec.ClusterType, "deploymentTarget", assignment.Spec.DeploymentTarget)
 		}
@@ -138,19 +140,19 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 			// set the owner of the assignment
 			if err := ctrl.SetControllerReference(schedulingPolicy, &newAssignment, r.Scheme); err != nil {
-				r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to set owner of Assignment")
+				return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to set owner of Assignment")
 			}
 
 			err = r.Create(ctx, &newAssignment)
 			if err != nil {
-				r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to create Assignment")
+				return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to create Assignment")
 			}
 			reqLogger.Info("Created Assignment", "name", newAssignment.Name, "clusterType", newAssignment.Spec.ClusterType, "deploymentTarget", newAssignment.Spec.DeploymentTarget)
 		}
 	}
 
 	condition := metav1.Condition{
-		Type:   "Scheduled",
+		Type:   "Ready",
 		Status: metav1.ConditionTrue,
 		Reason: "AssignmentsCreated",
 	}
@@ -171,7 +173,7 @@ func (h *SchedulingPolicyReconciler) manageFailure(ctx context.Context, logger l
 
 	//crerate a condition
 	condition := metav1.Condition{
-		Type:    "Scheduled",
+		Type:    "Ready",
 		Status:  metav1.ConditionFalse,
 		Reason:  "UpdateFailed",
 		Message: err.Error(),
@@ -213,6 +215,27 @@ func (r *SchedulingPolicyReconciler) findPolicies(object client.Object) []reconc
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Add the field index for the reconciler field in the cluster type
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.ClusterType{}, ReconcilerField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.ClusterType).Spec.Reconciler}
+	}); err != nil {
+		return err
+	}
+
+	// Add the field index for the namespaceService field in the cluster type
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.ClusterType{}, NamespaceServiceField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.ClusterType).Spec.NamespaceService}
+	}); err != nil {
+		return err
+	}
+
+	// Add the field index for the cluster type in the assignment
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.Assignment{}, ClusterTypeField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.Assignment).Spec.ClusterType}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.SchedulingPolicy{}).
 		Owns(&schedulerv1alpha1.Assignment{}).

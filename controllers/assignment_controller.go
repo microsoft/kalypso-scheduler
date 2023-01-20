@@ -20,15 +20,23 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
+
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
+	"github.com/microsoft/kalypso-scheduler/scheduler"
 )
 
 // AssignmentReconciler reconciles a Assignment object
@@ -63,20 +71,98 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	// fetch the templates in the namespace
-	templates := &schedulerv1alpha1.TemplateList{}
-	err = r.List(ctx, templates, client.InNamespace(req.Namespace))
+	// fetch the assignnment cluster type
+	clusterType := &schedulerv1alpha1.ClusterType{}
+	err = r.Get(ctx, client.ObjectKey{Name: assignment.Spec.ClusterType, Namespace: assignment.Namespace}, clusterType)
 	if err != nil {
-		r.manageFailure(ctx, reqLogger, assignment, err, "Failed to list ClusterTypes")
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get ClusterType")
 	}
 
-	// log the templates
-	for _, template := range templates.Items {
-		reqLogger.Info("Template", "Name", template.Name)
-		reqLogger.Info("Template", "Manifests", template.Spec.Manifests)
+	// fetch the deploymentTarget
+	deploymentTarget := &schedulerv1alpha1.DeploymentTarget{}
+	err = r.Get(ctx, client.ObjectKey{Name: assignment.Spec.DeploymentTarget, Namespace: assignment.Namespace}, deploymentTarget)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get DeploymentTarget")
 	}
 
-	// TODO(user): your logic here
+	templater, err := scheduler.NewTemplater(deploymentTarget)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get templater")
+	}
+
+	// get the reconciler manifests
+	reconcilerManifests, err := r.getReconcilerManifests(ctx, clusterType, templater)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get reconciler manifests")
+	}
+
+	//log reconcilerManifests
+	reqLogger.Info("Reconciler Manifests", "Manifests", reconcilerManifests)
+
+	// get the namespace manifests
+	namespaceManifests, err := r.getNamespaceManifests(ctx, clusterType, templater)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get namespace manifests")
+	}
+
+	// log namespaceManifests
+	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
+
+	// get the assignment package by label selector if doesn't exist create it
+	assignmentPackage := &schedulerv1alpha1.AssignmentPackage{}
+	packageExists := true
+	err = r.Get(ctx, client.ObjectKey{Name: assignment.Name, Namespace: assignment.Namespace}, assignmentPackage)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get AssignmentPackage")
+		}
+
+		// create the assignment package
+		assignmentPackage.SetName(assignment.Name)
+		assignmentPackage.SetNamespace(assignment.Namespace)
+
+		if err := ctrl.SetControllerReference(assignment, assignmentPackage, r.Scheme); err != nil {
+			return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to set controller reference")
+		}
+		packageExists = false
+	}
+
+	assignmentPackage.Spec.ReconcilerManifests = reconcilerManifests
+	assignmentPackage.Spec.NamespaceManifests = namespaceManifests
+
+	assignmentPackage.SetLabels(map[string]string{
+		schedulerv1alpha1.ClusterTypeLabel:      assignment.Spec.ClusterType,
+		schedulerv1alpha1.WorkloadLabel:         assignment.Spec.Workload,
+		schedulerv1alpha1.DeploymentTargetLabel: assignment.Spec.DeploymentTarget,
+	})
+
+	//log assignmentPackage
+	reqLogger.Info("Assignment Package", "AssignmentPackage", assignmentPackage)
+
+	if packageExists {
+		err = r.Update(ctx, assignmentPackage)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to update assignment package")
+		}
+	} else {
+		err = r.Create(ctx, assignmentPackage)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to create assignment package")
+		}
+	}
+
+	condition := metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionTrue,
+		Reason: "AssignmentPackageCreated",
+	}
+	meta.SetStatusCondition(&assignment.Status.Conditions, condition)
+
+	updateErr := r.Status().Update(ctx, assignment)
+	if updateErr != nil {
+		reqLogger.Error(updateErr, "Error when updating status.")
+		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -87,7 +173,7 @@ func (h *AssignmentReconciler) manageFailure(ctx context.Context, logger logr.Lo
 
 	//crerate a condition
 	condition := metav1.Condition{
-		Type:    "Configured",
+		Type:    "Ready",
 		Status:  metav1.ConditionFalse,
 		Reason:  "UpdateFailed",
 		Message: err.Error(),
@@ -103,9 +189,100 @@ func (h *AssignmentReconciler) manageFailure(ctx context.Context, logger logr.Lo
 	return ctrl.Result{}, err
 }
 
+// get the reconciler manifests
+func (r *AssignmentReconciler) getReconcilerManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]unstructured.Unstructured, error) {
+
+	// fetch the cluster type reconciler template
+	template := &schedulerv1alpha1.Template{}
+	err := r.Get(ctx, client.ObjectKey{Name: clusterType.Spec.Reconciler, Namespace: clusterType.Namespace}, template)
+	if err != nil {
+		return nil, err
+	}
+
+	reconcilerManifests, err := templater.ProcessTemplate(ctx, template)
+	if err != nil {
+		return nil, err
+	}
+
+	return reconcilerManifests, nil
+}
+
+// get the namespace manifests
+func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]unstructured.Unstructured, error) {
+	// fetch the cluster type namespace template
+	template := &schedulerv1alpha1.Template{}
+	err := r.Get(ctx, client.ObjectKey{Name: clusterType.Spec.NamespaceService, Namespace: clusterType.Namespace}, template)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaceManifests, err := templater.ProcessTemplate(ctx, template)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaceManifests, nil
+}
+
+func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) []reconcile.Request {
+	//get template
+	template := &schedulerv1alpha1.Template{}
+	err := r.Get(context.TODO(), client.ObjectKey{
+		Name:      object.GetName(),
+		Namespace: object.GetNamespace(),
+	}, template)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//get cluster types that use this template as a reconciler
+	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
+	err = r.List(context.TODO(), clusterTypes, client.MatchingFields{ReconcilerField: template.Name})
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//get cluster types that use this template as a namespace service
+	clusterTypesNameSpace := &schedulerv1alpha1.ClusterTypeList{}
+	err = r.List(context.TODO(), clusterTypesNameSpace, client.MatchingFields{NamespaceServiceField: template.Name})
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//append the two lists
+	clusterTypes.Items = append(clusterTypes.Items, clusterTypesNameSpace.Items...)
+
+	var requests []reconcile.Request
+	// iterate over the cluster types and find the assignments
+	for _, clusterType := range clusterTypes.Items {
+		assignments := &schedulerv1alpha1.AssignmentList{}
+		err = r.List(context.TODO(), assignments, client.MatchingFields{ClusterTypeField: clusterType.Name})
+		if err != nil {
+			return []reconcile.Request{}
+		}
+
+		for _, item := range assignments.Items {
+			request := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			}
+			requests = append(requests, request)
+		}
+	}
+
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *AssignmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.Assignment{}).
+		Owns(&schedulerv1alpha1.AssignmentPackage{}).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.Template{}},
+			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForTemplate)).
 		Complete(r)
 }

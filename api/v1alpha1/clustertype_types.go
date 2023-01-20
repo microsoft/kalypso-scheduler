@@ -27,6 +27,9 @@ import (
 type ClusterTypeSpec struct {
 	//+kubebuilder:validation:MinLength=0
 	Reconciler string `json:"reconciler"`
+
+	//+kubebuilder:validation:MinLength=0
+	NamespaceService string `json:"namespaceService"`
 }
 
 // ClusterTypeStatus defines the observed state of ClusterType

@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+//TODO: implement integration with OCM placement API
+
 type Scheduler interface {
 	SelectClusterTypes(ctx context.Context, allClusterTypes []kalypsov1alpha1.ClusterType) ([]kalypsov1alpha1.ClusterType, error)
 	SelectDeploymentTargets(ctx context.Context, allDeploymentTargets []kalypsov1alpha1.DeploymentTarget) ([]kalypsov1alpha1.DeploymentTarget, error)
