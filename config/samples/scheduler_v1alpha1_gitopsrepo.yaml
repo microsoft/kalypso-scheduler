@@ -1,0 +1,12 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: GitOpsRepo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitopsrepo
+    app.kubernetes.io/instance: gitopsrepo-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+  name: gitopsrepo-sample
+spec:
+  # TODO(user): Add fields here
