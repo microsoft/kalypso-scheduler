@@ -130,7 +130,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
 	//get configManifests
-	configManifests, err := r.getConfigManifests(ctx, clusterType)
+	configManifests, err := r.getConfigManifests(ctx, clusterType, deploymentTarget)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
 	}
@@ -256,7 +256,7 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 }
 
 // get the config manifests
-func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType) ([]unstructured.Unstructured, error) {
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) ([]unstructured.Unstructured, error) {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMaps := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{platformConfigLabel: "true"})
@@ -283,7 +283,7 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		Kind:    "ConfigMap",
 	})
 	manifest.SetName(platformConfigLabel)
-	manifest.SetNamespace(clusterType.Namespace)
+	manifest.SetNamespace(deploymentTarget.GetTargetNamespace())
 	manifest.Object["data"] = clusterConfigData
 	manifests = append(manifests, manifest)
 

@@ -102,7 +102,7 @@ func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.Re
 	}
 
 	//TODO: don't create PR if there is no changes
-	pr, err := g.createPR(g.repo.Branch, prBranchName)
+	pr, err := g.createPullRequest(g.repo.Branch, prBranchName)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +152,16 @@ func (g *githubRepo) getTreeEntry(clusterType, fileName, content string) *github
 	}
 }
 
-// convert the content of the map into yaml stri g
+// convert the content of the map into yaml string
 func (g *githubRepo) getManifestsYaml(manifests []unstructured.Unstructured) (string, error) {
 	var manifestsYaml string
 	for _, manifest := range manifests {
 		manifestYaml, err := yaml.Marshal(manifest.Object)
 		if err != nil {
 			return "", err
+		}
+		if manifestsYaml != "" {
+			manifestsYaml += "---\n"
 		}
 		manifestsYaml += string(manifestYaml)
 	}
@@ -168,8 +171,32 @@ func (g *githubRepo) getManifestsYaml(manifests []unstructured.Unstructured) (st
 func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.RepoContentType) (tree *github.Tree, err error) {
 	// Create a tree with what to commit.
 	entries := []*github.TreeEntry{}
+	existingTree, _, err := g.client.Git.GetTree(g.ctx, g.sourceOwner, g.sourceRepo, *ref.Object.SHA, true)
+	if err != nil {
+		return nil, err
+	}
 
-	//iterate through the w
+	//iterate through the existing tree and delete the files that are not in the content
+	for _, entry := range existingTree.Entries {
+		if entry.GetType() == "blob" {
+			// get root folder of the entry
+			path := strings.Split(entry.GetPath(), "/")
+			if len(path) > 1 { // ignore the root folder
+				rootFolder := path[0]
+				if !strings.HasPrefix(rootFolder, ".") {
+					if _, ok := (*content)[rootFolder]; !ok {
+						entries = append(entries, &github.TreeEntry{
+							Path: github.String(entry.GetPath()),
+							Mode: github.String("100644"),
+						})
+					}
+				}
+
+			}
+		}
+	}
+
+	//iterate through the content and add the files
 	for k, v := range *content {
 		reconcilerManifests, err := g.getManifestsYaml(v.ReconcilerManifests)
 		if err != nil {
@@ -223,7 +250,7 @@ func (g *githubRepo) pushCommit(ref *github.Reference, tree *github.Tree) (err e
 	return err
 }
 
-func (g *githubRepo) createPR(baseBranchName string, prBranchName string) (*string, error) {
+func (g *githubRepo) createPullRequest(baseBranchName string, prBranchName string) (*string, error) {
 
 	prSubject := "Update manifests"
 	prDescription := "This PR updates the manifests in GitOps Repo"

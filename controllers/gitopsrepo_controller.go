@@ -333,5 +333,9 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 //TODO:
-// promotion flow
+// promotion flow !!!
+// workflowregistratoin controller
+// workflow controller
+// environment controller
 // nice description in the PR
+// nice crd output

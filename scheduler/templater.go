@@ -19,7 +19,6 @@ package scheduler
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"html/template"
 
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
@@ -114,7 +113,7 @@ func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget) dataType {
 	workspace := deploymentTarget.GetWorkspace()
 	workload := deploymentTarget.GetWorkload()
 	deploymentTargetName := deploymentTarget.Name
-	namespace := fmt.Sprintf("%s-%s-%s", environment, workspace, deploymentTargetName)
+	namespace := deploymentTarget.GetTargetNamespace()
 
 	return dataType{
 		DeploymentTargetName: deploymentTargetName,
