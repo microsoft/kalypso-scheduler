@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drone-config
+  labels:
+     platform-config: "true"
+     cluster-type: drone
+data:
+  CLUSTER_NAME: Drone
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: restricted-config
+  labels:
+     platform-config: "true"
+     restricted: "true"
+data:
+  DATABASE_URL: mysql://restricted-host:3306/mysq56
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: non-restricted-config
+  labels:
+     platform-config: "true"
+     restricted: "false"
+data:
+  DATABASE_URL: mysql://restricted-host:3306/mysql1234
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: east-us-config
+  labels:
+     platform-config: "true"
+     region: east-us
+data:
+  REGION: East US
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-config
+  labels:
+     platform-config: "true"
+data:
+  ENVIRONMENT: Dev

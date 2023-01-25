@@ -25,15 +25,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/microsoft/kalypso-scheduler/scheduler"
@@ -44,6 +48,10 @@ type AssignmentReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
+
+const (
+	platformConfigLabel = "platform-config"
+)
 
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/status,verbs=get;update;patch
@@ -69,6 +77,19 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Check if the resource is being deleted
 	if !assignment.ObjectMeta.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
+	}
+
+	condition := metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionFalse,
+		Reason: "RebuildingAssignmentPackage",
+	}
+	meta.SetStatusCondition(&assignment.Status.Conditions, condition)
+
+	updateErr := r.Status().Update(ctx, assignment)
+	if updateErr != nil {
+		reqLogger.Info("Error when updating status.")
+		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
 	}
 
 	// fetch the assignnment cluster type
@@ -108,6 +129,15 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// log namespaceManifests
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
+	//get configManifests
+	configManifests, err := r.getConfigManifests(ctx, clusterType)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
+	}
+
+	// log configManifests
+	reqLogger.Info("Config Manifests", "Manifests", configManifests)
+
 	// get the assignment package by label selector if doesn't exist create it
 	assignmentPackage := &schedulerv1alpha1.AssignmentPackage{}
 	packageExists := true
@@ -129,6 +159,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	assignmentPackage.Spec.ReconcilerManifests = reconcilerManifests
 	assignmentPackage.Spec.NamespaceManifests = namespaceManifests
+	assignmentPackage.Spec.ConfigManifests = configManifests
 
 	assignmentPackage.SetLabels(map[string]string{
 		schedulerv1alpha1.ClusterTypeLabel:      assignment.Spec.ClusterType,
@@ -151,16 +182,16 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	condition := metav1.Condition{
+	condition = metav1.Condition{
 		Type:   "Ready",
 		Status: metav1.ConditionTrue,
 		Reason: "AssignmentPackageCreated",
 	}
 	meta.SetStatusCondition(&assignment.Status.Conditions, condition)
 
-	updateErr := r.Status().Update(ctx, assignment)
+	updateErr = r.Status().Update(ctx, assignment)
 	if updateErr != nil {
-		reqLogger.Error(updateErr, "Error when updating status.")
+		reqLogger.Info("Error when updating status.")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
 	}
 
@@ -183,7 +214,7 @@ func (h *AssignmentReconciler) manageFailure(ctx context.Context, logger logr.Lo
 
 	updateErr := h.Status().Update(ctx, assignment)
 	if updateErr != nil {
-		logger.Error(updateErr, "Error when updating status. Requeued")
+		logger.Info("Error when updating status. Requeued")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
 	}
 	return ctrl.Result{}, err
@@ -224,6 +255,59 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 	return namespaceManifests, nil
 }
 
+// get the config manifests
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType) ([]unstructured.Unstructured, error) {
+	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
+	configMaps := &corev1.ConfigMapList{}
+	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{platformConfigLabel: "true"})
+	if err != nil {
+		return nil, err
+	}
+
+	//iterate ovrer the config maps and select those that satisfy the cluster type labels
+	var clusterConfigData map[string]string = make(map[string]string)
+	for _, configMap := range configMaps.Items {
+		if r.isConfigForClusterType(&configMap, clusterType) {
+			//add config map data to the cluster config data
+			for key, value := range configMap.Data {
+				clusterConfigData[key] = value
+			}
+		}
+	}
+
+	var manifests []unstructured.Unstructured
+	manifest := unstructured.Unstructured{}
+	manifest.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ConfigMap",
+	})
+	manifest.SetName(platformConfigLabel)
+	manifest.SetNamespace(clusterType.Namespace)
+	manifest.Object["data"] = clusterConfigData
+	manifests = append(manifests, manifest)
+
+	return manifests, nil
+}
+
+func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType) bool {
+	matches := true
+	for key, value := range config.Labels {
+		if key == schedulerv1alpha1.ClusterTypeLabel {
+			if value != clusterType.Name {
+				matches = false
+				break
+			}
+		}
+		clusterTypeLabeVaue, ok := clusterType.Labels[key]
+		if ok && clusterTypeLabeVaue != value {
+			matches = false
+			break
+		}
+	}
+	return matches
+}
+
 func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) []reconcile.Request {
 	//get template
 	template := &schedulerv1alpha1.Template{}
@@ -237,14 +321,14 @@ func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) 
 
 	//get cluster types that use this template as a reconciler
 	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
-	err = r.List(context.TODO(), clusterTypes, client.MatchingFields{ReconcilerField: template.Name})
+	err = r.List(context.TODO(), clusterTypes, client.InNamespace(object.GetNamespace()), client.MatchingFields{ReconcilerField: template.Name})
 	if err != nil {
 		return []reconcile.Request{}
 	}
 
 	//get cluster types that use this template as a namespace service
 	clusterTypesNameSpace := &schedulerv1alpha1.ClusterTypeList{}
-	err = r.List(context.TODO(), clusterTypesNameSpace, client.MatchingFields{NamespaceServiceField: template.Name})
+	err = r.List(context.TODO(), clusterTypesNameSpace, client.InNamespace(object.GetNamespace()), client.MatchingFields{NamespaceServiceField: template.Name})
 	if err != nil {
 		return []reconcile.Request{}
 	}
@@ -256,7 +340,7 @@ func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) 
 	// iterate over the cluster types and find the assignments
 	for _, clusterType := range clusterTypes.Items {
 		assignments := &schedulerv1alpha1.AssignmentList{}
-		err = r.List(context.TODO(), assignments, client.MatchingFields{ClusterTypeField: clusterType.Name})
+		err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{ClusterTypeField: clusterType.Name})
 		if err != nil {
 			return []reconcile.Request{}
 		}
@@ -275,14 +359,60 @@ func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) 
 	return requests
 }
 
+// findAssignmentsForConfigMap finds all assignments that use the config map
+func (r *AssignmentReconciler) findAssignmentsForConfigMap(object client.Object) []reconcile.Request {
+	//get config map
+	configMap := &corev1.ConfigMap{}
+	err := r.Get(context.TODO(), client.ObjectKey{
+		Name:      object.GetName(),
+		Namespace: object.GetNamespace(),
+	}, configMap)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//get cluster types in this namespace
+	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
+	err = r.List(context.TODO(), clusterTypes, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	// iterate over the cluster types and check if the config map is applicable
+	var requests []reconcile.Request
+	for _, clusterType := range clusterTypes.Items {
+		if r.isConfigForClusterType(configMap, &clusterType) {
+			assignments := &schedulerv1alpha1.AssignmentList{}
+			err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{ClusterTypeField: clusterType.Name})
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			for _, item := range assignments.Items {
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+				requests = append(requests, request)
+			}
+		}
+	}
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *AssignmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&schedulerv1alpha1.Assignment{}).
-		Owns(&schedulerv1alpha1.AssignmentPackage{}).
+		For(&schedulerv1alpha1.Assignment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&schedulerv1alpha1.AssignmentPackage{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&source.Kind{Type: &schedulerv1alpha1.Template{}},
 			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForTemplate)).
+		Watches(
+			&source.Kind{Type: &corev1.ConfigMap{}},
+			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForConfigMap)).
 		Complete(r)
 }

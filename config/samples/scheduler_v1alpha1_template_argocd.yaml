@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: kalypso-scheduler
+    someLabel: "true"
   name: argocd
 spec:
   type: reconciler

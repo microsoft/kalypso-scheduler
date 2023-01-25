@@ -25,9 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -72,6 +74,19 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
+	condition := metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionFalse,
+		Reason: "Rescheduling",
+	}
+	meta.SetStatusCondition(&schedulingPolicy.Status.Conditions, condition)
+
+	updateErr := r.Status().Update(ctx, schedulingPolicy)
+	if updateErr != nil {
+		reqLogger.Info("Error when updating status.")
+		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+	}
+
 	// fetch the list of clusterctypes in the namespace
 	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
 	err = r.List(ctx, clusterTypes, client.InNamespace(req.Namespace))
@@ -93,6 +108,9 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	assignments, err := scheduler.Schedule(ctx, clusterTypes.Items, deploymentTargets.Items)
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to schedule")
+	}
 	reqLogger.Info("Number of assignments", "count", len(assignments))
 
 	//log the assignments
@@ -151,16 +169,16 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	condition := metav1.Condition{
+	condition = metav1.Condition{
 		Type:   "Ready",
 		Status: metav1.ConditionTrue,
 		Reason: "AssignmentsCreated",
 	}
 	meta.SetStatusCondition(&schedulingPolicy.Status.Conditions, condition)
 
-	updateErr := r.Status().Update(ctx, schedulingPolicy)
+	updateErr = r.Status().Update(ctx, schedulingPolicy)
 	if updateErr != nil {
-		reqLogger.Error(updateErr, "Error when updating status.")
+		reqLogger.Info("Error when updating status.")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
 	}
 
@@ -183,7 +201,7 @@ func (h *SchedulingPolicyReconciler) manageFailure(ctx context.Context, logger l
 
 	updateErr := h.Status().Update(ctx, schedulingPolicy)
 	if updateErr != nil {
-		logger.Error(updateErr, "Error when updating status. Requeued")
+		logger.Info("Error when updating status. Requeued")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
 	}
 	return ctrl.Result{}, err
@@ -237,8 +255,8 @@ func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&schedulerv1alpha1.SchedulingPolicy{}).
-		Owns(&schedulerv1alpha1.Assignment{}).
+		For(&schedulerv1alpha1.SchedulingPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&schedulerv1alpha1.Assignment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
 			handler.EnqueueRequestsFromMapFunc(r.findPolicies)).

@@ -18,16 +18,28 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
+	"github.com/microsoft/kalypso-scheduler/scheduler"
+	"github.com/mitchellh/hashstructure"
 )
 
 // GitOpsRepoReconciler reconciles a GitOpsRepo object
@@ -36,13 +48,15 @@ type GitOpsRepoReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const prCreateTimeOut = 3 * time.Second
+
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes/finalizers,verbs=update
 
 func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
-	reqLogger.Info("=== Reconciling Assignment ===")
+	reqLogger.Info("=== Reconciling GitOps Repo ===")
 
 	// Fetch the GitOpsRepo instance
 	gitopsrepo := &schedulerv1alpha1.GitOpsRepo{}
@@ -51,7 +65,6 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		ignroredNotFound := client.IgnoreNotFound(err)
 		if ignroredNotFound != nil {
 			reqLogger.Error(err, "Failed to get GitOpsRepo")
-
 		}
 		return ctrl.Result{}, ignroredNotFound
 	}
@@ -61,81 +74,264 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	// Check if the status condioion ReadyToPR is true
-	if !meta.IsStatusConditionTrue(gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType) {
-		// check Ready status condition of all Schedule Policies in the namespace
-		// if all are true, set ReadyToPR to true
-		schedulePolicies := &schedulerv1alpha1.SchedulingPolicyList{}
-		err = r.List(ctx, schedulePolicies, client.InNamespace(gitopsrepo.Namespace))
-		if err != nil {
-			reqLogger.Error(err, "Failed to list SchedulePolicies")
-			return ctrl.Result{}, err
+	// check Ready status condition of all Schedule Policies in the namespace
+	// if all are true, set ReadyToPR to true
+	schedulePolicies := &schedulerv1alpha1.SchedulingPolicyList{}
+	err = r.List(ctx, schedulePolicies, client.InNamespace(gitopsrepo.Namespace))
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list SchedulePolicies")
+	}
+	readyToPR := true
+	for _, schedulePolicy := range schedulePolicies.Items {
+		if !meta.IsStatusConditionTrue(schedulePolicy.Status.Conditions, schedulerv1alpha1.ReadyConditionType) {
+			readyToPR = false
+			//log not all schedule policies are ready
+			reqLogger.Info("Not all Schedule Policies are ready")
+			break
 		}
-		readyToPR := true
-		for _, schedulePolicy := range schedulePolicies.Items {
-			if !meta.IsStatusConditionTrue(schedulePolicy.Status.Conditions, schedulerv1alpha1.ReadyConditionType) {
+	}
+
+	if readyToPR {
+		// check Ready status condition of all Assignments in the namespace
+		// if all are true, set ReadyToPR to true
+		assignments := &schedulerv1alpha1.AssignmentList{}
+		err = r.List(ctx, assignments, client.InNamespace(gitopsrepo.Namespace))
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list Assignments")
+		}
+		for _, assignment := range assignments.Items {
+			if !meta.IsStatusConditionTrue(assignment.Status.Conditions, schedulerv1alpha1.ReadyConditionType) {
 				readyToPR = false
+				//log not all assignments are ready
+				reqLogger.Info("Not all Assignments are ready")
 				break
 			}
 		}
-
-		if readyToPR {
-			// check Ready status condition of all Assignments in the namespace
-			// if all are true, set ReadyToPR to true
-			assignments := &schedulerv1alpha1.AssignmentList{}
-			err = r.List(ctx, assignments, client.InNamespace(gitopsrepo.Namespace))
-			if err != nil {
-				reqLogger.Error(err, "Failed to list Assignments")
-				return ctrl.Result{}, err
-			}
-			for _, assignment := range assignments.Items {
-				if !meta.IsStatusConditionTrue(assignment.Status.Conditions, schedulerv1alpha1.ReadyConditionType) {
-					readyToPR = false
-					break
-				}
-			}
-		}
-
-		if readyToPR {
-			// set ReadyToPR to true
-			meta.SetStatusCondition(&gitopsrepo.Status.Conditions, metav1.Condition{
-				Type:   schedulerv1alpha1.ReadyToPRConditionType,
-				Status: metav1.ConditionTrue,
-				Reason: "All SchedulePolicies and Assignments are ready",
-			})
-
-			updateErr := r.Status().Update(ctx, gitopsrepo)
-			if updateErr != nil {
-				reqLogger.Error(updateErr, "Error when updating status.")
-				return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
-			}
-
-			//Create a PR in the next reconcile in 3 seconds
-			//so all assignments can bombard this GitOpsRepo
-			return ctrl.Result{RequeueAfter: time.Second * 3}, nil
-
-		}
-
 	}
-	//check last transaction time of the ReadyToPR condition
-	//if it is more than 3 seconds, create a PR
-	readyToPRCondition := meta.FindStatusCondition(gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType)
-	if readyToPRCondition != nil {
-		if readyToPRCondition.LastTransitionTime.Time.Add(time.Second * 3).Before(time.Now()) {
-			//log a mesage and create a PR
-			reqLogger.Info("!!!!!!!!!!!!!!!!!!!Creating a PR!!!!!!!!!!!!!!!!!!!!!!!!")
-			//TODO: create a PR			
-			// figure out how to not create a PR on every controller restart
-			// perhaps hash the content of the PR and store it in the status - that's correct!
-			// https://pkg.go.dev/github.com/mitchellh/hashstructure
+
+	if readyToPR {
+		//log all assignments and schedule policies are ready
+		reqLogger.Info("All Assignments and Schedule Policies are ready")
+
+		// create repoContent map
+		repoContent := make(schedulerv1alpha1.RepoContentType)
+
+		//fetch all assignment packages in the namespace
+		assignmentPackages := &schedulerv1alpha1.AssignmentPackageList{}
+		err = r.List(ctx, assignmentPackages, client.InNamespace(gitopsrepo.Namespace))
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list AssignmentPackages")
+		}
+
+		//iterate over all assignment packages
+		for _, assignmentPackage := range assignmentPackages.Items {
+			repoContent[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = assignmentPackage.Spec
+		}
+
+		// get the hash of the repoContent
+		repoContentHash, err := hashstructure.Hash(repoContent, nil)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to hash the repoContent")
+		}
+
+		// convert the hash to a string
+		repoContentHashString := strconv.FormatUint(repoContentHash, 10)
+
+		// log hashes
+		reqLogger.Info("repoContentHash", "repoContentHash", repoContentHashString)
+		reqLogger.Info("gitopsrepo.Status.RepoContentHash", "gitopsrepo.Status.RepoContentHash", gitopsrepo.Status.RepoContentHash)
+
+		// if the hash is different from the one in the status, create a PR
+		if gitopsrepo.Status.RepoContentHash != repoContentHashString {
+
+			//get "ReadyForPR" status condition
+			readyForPRCondition := meta.FindStatusCondition(gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType)
+			//chheck it was set before 3 seconds ago
+			if readyForPRCondition != nil {
+				readyForPRConditionTime := readyForPRCondition.LastTransitionTime.Time
+				//wait until things calm down and then create a PR
+				//so we dont' create a PR for every change
+				if readyForPRConditionTime.Add(prCreateTimeOut).Before(time.Now()) {
+
+					meta.SetStatusCondition(&gitopsrepo.Status.Conditions, metav1.Condition{
+						Type:   schedulerv1alpha1.ReadyConditionType,
+						Status: metav1.ConditionFalse,
+						Reason: "CreatingPR",
+					})
+
+					updateErr := r.Status().Update(ctx, gitopsrepo)
+
+					if updateErr != nil {
+						reqLogger.Info("Error when updating status.")
+						return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+					}
+
+					// create a PR
+					reqLogger.Info("!!!!!!!!!!!!!!!!!!!Creating a PR!!!!!!!!!!!!!!!!!!!!!!!!")
+					githubRepo, err := scheduler.NewGithubRepo(ctx, &gitopsrepo.Spec)
+					if err != nil {
+						return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to create a GithubRepo")
+					}
+					_, err = githubRepo.CreatePR(fmt.Sprintf("deployment/%s", repoContentHashString), &repoContent)
+					if err != nil {
+						if r.ignorePrAlreadyExists(err) == nil {
+							reqLogger.Info("PR already exists")
+						} else {
+							return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to create a PR")
+						}
+					}
+
+					meta.SetStatusCondition(&gitopsrepo.Status.Conditions, metav1.Condition{
+						Type:   schedulerv1alpha1.ReadyConditionType,
+						Status: metav1.ConditionTrue,
+						Reason: "PRCreated",
+					})
+					meta.RemoveStatusCondition(&gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType)
+
+					gitopsrepo.Status.RepoContentHash = repoContentHashString
+
+					updateErr = r.Status().Update(ctx, gitopsrepo)
+
+					if updateErr != nil {
+						reqLogger.Info("Error when updating status.")
+						return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+					}
+				}
+
+			} else {
+				reqLogger.Info("!!!!!!!Ready for PR!!!!!!!!")
+				// set the "ReadyForPR" status condition
+				meta.SetStatusCondition(&gitopsrepo.Status.Conditions, metav1.Condition{
+					Type:   schedulerv1alpha1.ReadyToPRConditionType,
+					Status: metav1.ConditionTrue,
+					Reason: "ReadyForPR",
+				})
+				updateErr := r.Status().Update(ctx, gitopsrepo)
+
+				if updateErr != nil {
+					reqLogger.Info("Error when updating status.")
+					return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+				}
+
+				//create a pr in a timeout
+				return ctrl.Result{RequeueAfter: prCreateTimeOut}, nil
+
+			}
+
+		} else {
+			if meta.IsStatusConditionTrue(gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType) {
+				meta.RemoveStatusCondition(&gitopsrepo.Status.Conditions, schedulerv1alpha1.ReadyToPRConditionType)
+				updateErr := r.Status().Update(ctx, gitopsrepo)
+
+				if updateErr != nil {
+					reqLogger.Info("Error when updating status.")
+					return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+				}
+
+			}
+		}
+
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// ignorePrAlreadyExists returns nil if the error is a PR already exists error
+func (r *GitOpsRepoReconciler) ignorePrAlreadyExists(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "A pull request already exists") {
+		return nil
+	}
+	return err
+}
+
+// Gracefully handle errors
+func (h *GitOpsRepoReconciler) manageFailure(ctx context.Context, logger logr.Logger, gitopsrepo *schedulerv1alpha1.GitOpsRepo, err error, message string) (ctrl.Result, error) {
+	logger.Error(err, message)
+
+	//crerate a condition
+	condition := metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionFalse,
+		Reason:  "UpdateFailed",
+		Message: err.Error(),
+	}
+
+	meta.SetStatusCondition(&gitopsrepo.Status.Conditions, condition)
+
+	updateErr := h.Status().Update(ctx, gitopsrepo)
+	if updateErr != nil {
+		logger.Info("Error when updating status. Requeued")
+		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+	}
+	return ctrl.Result{}, err
+}
+
+func (r *GitOpsRepoReconciler) findGitOpsRepo(object client.Object) []reconcile.Request {
+	// Find all GitOps repos in the namespace
+	gitopsrepos := &schedulerv1alpha1.GitOpsRepoList{}
+	err := r.List(context.TODO(), gitopsrepos, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	//Create requests for the gitops repos
+	requests := make([]reconcile.Request, len(gitopsrepos.Items))
+	for i, gitopsrepo := range gitopsrepos.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      gitopsrepo.Name,
+				Namespace: gitopsrepo.Namespace,
+			},
+		}
+	}
+
+	return requests
+}
+
+// Reocnile only if the spec has changed or it was triggered by the watched objects (e.g. SchedulingPolicy or Assignment)
+func (r *GitOpsRepoReconciler) normalPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if _, ok := e.ObjectOld.(*schedulerv1alpha1.GitOpsRepo); ok {
+				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+			}
+
+			if schedulingPolicy, ok := e.ObjectNew.(*schedulerv1alpha1.SchedulingPolicy); ok {
+				return meta.IsStatusConditionTrue(schedulingPolicy.Status.Conditions, schedulerv1alpha1.ReadyConditionType)
+			}
+
+			if assignment, ok := e.ObjectNew.(*schedulerv1alpha1.Assignment); ok {
+				return meta.IsStatusConditionTrue(assignment.Status.Conditions, schedulerv1alpha1.ReadyConditionType)
+			}
+
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return !e.DeleteStateUnknown
+		},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.GitOpsRepo{}).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.SchedulingPolicy{}},
+			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.Assignment{}},
+			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
+		WithEventFilter(r.normalPredicate()).
 		Complete(r)
 }
+
+//TODO:
+// promotion flow
+// nice description in the PR

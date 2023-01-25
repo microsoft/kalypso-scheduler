@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	ReadyToPRConditionType = "ReadyToPROD"
+	ReadyToPRConditionType = "ReadyToPR"
+	PRConditionType        = "PR"
 	ReadyConditionType     = "Ready"
 )
 
@@ -30,9 +31,12 @@ type GitOpsRepoSpec struct {
 	ManifestsSpec `json:",inline"`
 }
 
+type RepoContentType map[string]AssignmentPackageSpec
+
 // GitOpsRepoStatus defines the observed state of GitOpsRepo
 type GitOpsRepoStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	RepoContentHash string             `json:"repoContentHash,omitempty"`
+	Conditions      []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
