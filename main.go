@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/microsoft/kalypso-scheduler/controllers"
 	//+kubebuilder:scaffold:imports
@@ -45,6 +47,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(schedulerv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(kustomizev1.AddToScheme(scheme))
+	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -122,6 +127,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitOpsRepo")
+		os.Exit(1)
+	}
+	if err = (&controllers.BaseRepoReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BaseRepo")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

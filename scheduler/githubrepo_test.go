@@ -81,10 +81,10 @@ func TestCreatePR(t *testing.T) {
 		NamespaceManifests:  namespaceManifests,
 	}
 
-	repoContentType := make(kalypsov1alpha1.RepoContentType)
-	repoContentType["drone"] = *assignmentPackageSpec
+	repoContentType := kalypsov1alpha1.NewRepoContentType()
+	repoContentType.AssignmentPackages["drone"] = *assignmentPackageSpec
 
-	_, err = githubRepo.CreatePR("unit-test", &repoContentType)
+	_, err = githubRepo.CreatePR("unit-test", repoContentType)
 	if err != nil {
 		t.Errorf("can't create PR: %v", err)
 	}

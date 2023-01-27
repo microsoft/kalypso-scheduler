@@ -31,7 +31,17 @@ type GitOpsRepoSpec struct {
 	ManifestsSpec `json:",inline"`
 }
 
-type RepoContentType map[string]AssignmentPackageSpec
+type RepoContentType struct {
+	AssignmentPackages map[string]AssignmentPackageSpec
+	BaseRepo           BaseRepoSpec
+}
+
+// newRepoContentType creates a new RepoContentType
+func NewRepoContentType() *RepoContentType {
+	return &RepoContentType{
+		AssignmentPackages: make(map[string]AssignmentPackageSpec),
+	}
+}
 
 // GitOpsRepoStatus defines the observed state of GitOpsRepo
 type GitOpsRepoStatus struct {
