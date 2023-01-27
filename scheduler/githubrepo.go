@@ -50,9 +50,11 @@ type githubRepo struct {
 var _ GithubRepo = (*githubRepo)(nil)
 
 var (
-	authorName    string = "Kalypso Scheduler"
-	authorEmail   string = "kalypso.scheduler@email.com"
-	commitMessage string = "Kalypso Scheduler commit"
+	authorName              string = "Kalypso Scheduler"
+	authorEmail             string = "kalypso.scheduler@email.com"
+	commitMessage           string = "Kalypso Scheduler commit"
+	Promoted_Commit_Id_Path string = ".github/tracking/Promoted_Commit_Id"
+	prometedLabel           string = "promoted"
 )
 
 func getGitHubClient(ctx context.Context) *github.Client {
@@ -91,7 +93,7 @@ func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.Re
 		return nil, errors.New("failed to create new branch")
 	}
 
-	tree, err := g.getTree(newBranch, content)
+	tree, isPromoted, err := g.getTree(newBranch, content)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +104,7 @@ func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.Re
 	}
 
 	//TODO: don't create PR if there is no changes
-	pr, err := g.createPullRequest(g.repo.Branch, prBranchName)
+	pr, err := g.createPullRequest(g.repo.Branch, prBranchName, isPromoted)
 	if err != nil {
 		return nil, err
 	}
@@ -168,12 +170,12 @@ func (g *githubRepo) getManifestsYaml(manifests []unstructured.Unstructured) (st
 	return manifestsYaml, nil
 }
 
-func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.RepoContentType) (tree *github.Tree, err error) {
+func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.RepoContentType) (tree *github.Tree, isPromoted bool, err error) {
 	// Create a tree with what to commit.
 	entries := []*github.TreeEntry{}
 	existingTree, _, err := g.client.Git.GetTree(g.ctx, g.sourceOwner, g.sourceRepo, *ref.Object.SHA, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	//iterate through the existing tree and delete the files that are not in the content
@@ -184,7 +186,7 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 			if len(path) > 1 { // ignore the root folder
 				rootFolder := path[0]
 				if !strings.HasPrefix(rootFolder, ".") {
-					if _, ok := (*content)[rootFolder]; !ok {
+					if _, ok := (*&content.AssignmentPackages)[rootFolder]; !ok {
 						entries = append(entries, &github.TreeEntry{
 							Path: github.String(entry.GetPath()),
 							Mode: github.String("100644"),
@@ -196,25 +198,35 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 		}
 	}
 
+	var commitIdEntry *github.TreeEntry
+	commitIdEntry, isPromoted, err = g.addPromotedCommitId(existingTree.Entries, content)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if commitIdEntry != nil {
+		entries = append(entries, commitIdEntry)
+	}
+
 	//iterate through the content and add the files
-	for k, v := range *content {
+	for k, v := range *&content.AssignmentPackages {
 		reconcilerManifests, err := g.getManifestsYaml(v.ReconcilerManifests)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		manifestsEntry := g.getTreeEntry(k, "reconciler.yaml", reconcilerManifests)
 		entries = append(entries, manifestsEntry)
 
 		namespaceManifests, err := g.getManifestsYaml(v.NamespaceManifests)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		namespaceEntry := g.getTreeEntry(k, "namespace.yaml", namespaceManifests)
 		entries = append(entries, namespaceEntry)
 
 		configManifests, err := g.getManifestsYaml(v.ConfigManifests)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if configManifests != "" {
 			configEntry := g.getTreeEntry(k, "config.yaml", configManifests)
@@ -223,7 +235,45 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 	}
 
 	tree, _, err = g.client.Git.CreateTree(g.ctx, g.sourceOwner, g.sourceRepo, *ref.Object.SHA, entries)
-	return tree, err
+	return tree, isPromoted, err
+}
+
+func (g *githubRepo) addPromotedCommitId(existingEntries []*github.TreeEntry, content *schedulerv1alpha1.RepoContentType) (commitEntry *github.TreeEntry, isPromoted bool, err error) {
+	//get the promoted commit id
+	promotedCommitId := content.BaseRepo.Commit
+	if promotedCommitId == "" {
+		return nil, false, nil
+	}
+
+	// iterate over existingEntries and find the promotedCommitId file
+	for _, entry := range existingEntries {
+		if entry.GetType() == "blob" {
+			// if patth ends with Promoted_Commit_Id then that's it
+			if entry.GetPath() == Promoted_Commit_Id_Path {
+				// if the content is same as the promotedCommitId then return
+				// get the content of the file
+				blobs, _, err :=
+					g.client.Git.GetBlobRaw(context.Background(), g.sourceOwner, g.sourceRepo, entry.GetSHA())
+				if err != nil {
+					return nil, false, err
+				}
+				existingPromotedCommitId := string(blobs)
+
+				if existingPromotedCommitId == promotedCommitId {
+					return nil, false, nil
+				}
+				break
+			}
+		}
+	}
+
+	commitEntry = &github.TreeEntry{
+		Path:    github.String(Promoted_Commit_Id_Path),
+		Type:    github.String("blob"),
+		Content: github.String(promotedCommitId),
+		Mode:    github.String("100644"),
+	}
+	return commitEntry, true, nil
 }
 
 func (g *githubRepo) pushCommit(ref *github.Reference, tree *github.Tree) (err error) {
@@ -250,7 +300,7 @@ func (g *githubRepo) pushCommit(ref *github.Reference, tree *github.Tree) (err e
 	return err
 }
 
-func (g *githubRepo) createPullRequest(baseBranchName string, prBranchName string) (*string, error) {
+func (g *githubRepo) createPullRequest(baseBranchName, prBranchName string, isPromoted bool) (*string, error) {
 
 	prSubject := "Update manifests"
 	prDescription := "This PR updates the manifests in GitOps Repo"
@@ -266,6 +316,13 @@ func (g *githubRepo) createPullRequest(baseBranchName string, prBranchName strin
 	pr, _, err := g.client.PullRequests.Create(g.ctx, g.sourceOwner, g.sourceRepo, newPR)
 	if err != nil {
 		return nil, err
+	}
+
+	if isPromoted {
+		_, _, err = g.client.Issues.AddLabelsToIssue(g.ctx, g.sourceOwner, g.sourceRepo, pr.GetNumber(), []string{prometedLabel})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	prNumber := strconv.Itoa(pr.GetNumber())

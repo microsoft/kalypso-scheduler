@@ -73,4 +73,13 @@ resources:
   kind: GitOpsRepo
   path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kalypso.io
+  group: scheduler
+  kind: BaseRepo
+  path: github.com/microsoft/kalypso-scheduler/api/v1alpha1
+  version: v1alpha1
 version: "3"
