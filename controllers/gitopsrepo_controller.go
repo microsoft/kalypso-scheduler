@@ -114,7 +114,7 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		reqLogger.Info("All Assignments and Schedule Policies are ready")
 
 		// create repoContent map
-		repoContent := make(schedulerv1alpha1.RepoContentType)
+		repoContent := schedulerv1alpha1.NewRepoContentType()
 
 		//fetch all assignment packages in the namespace
 		assignmentPackages := &schedulerv1alpha1.AssignmentPackageList{}
@@ -125,7 +125,21 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		//iterate over all assignment packages
 		for _, assignmentPackage := range assignmentPackages.Items {
-			repoContent[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = assignmentPackage.Spec
+			repoContent.AssignmentPackages[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = assignmentPackage.Spec
+		}
+
+		// list all BaseRepos in the namespace
+		baserepos := &schedulerv1alpha1.BaseRepoList{}
+		err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace))
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list BaseRepos")
+		}
+		if len(baserepos.Items) > 1 {
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "There should be only one BaseRepo in the namespace")
+		}
+
+		if len(baserepos.Items) == 1 {
+			repoContent.BaseRepo = baserepos.Items[0].Spec
 		}
 
 		// get the hash of the repoContent
@@ -172,7 +186,7 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					if err != nil {
 						return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to create a GithubRepo")
 					}
-					_, err = githubRepo.CreatePR(fmt.Sprintf("deployment/%s", repoContentHashString), &repoContent)
+					_, err = githubRepo.CreatePR(fmt.Sprintf("deployment/%s", repoContentHashString), repoContent)
 					if err != nil {
 						if r.ignorePrAlreadyExists(err) == nil {
 							reqLogger.Info("PR already exists")
@@ -333,9 +347,9 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 //TODO:
-// promotion flow !!!
 // workflowregistratoin controller
 // workflow controller
 // environment controller
 // nice description in the PR
 // nice crd output
+// visibility - commit status
