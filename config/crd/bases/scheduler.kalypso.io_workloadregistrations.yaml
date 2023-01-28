@@ -5,20 +5,21 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: baserepoes.scheduler.kalypso.io
+  name: workloadregistrations.scheduler.kalypso.io
 spec:
   group: scheduler.kalypso.io
   names:
-    kind: BaseRepo
-    listKind: BaseRepoList
-    plural: baserepoes
-    singular: baserepo
+    kind: WorkloadRegistration
+    listKind: WorkloadRegistrationList
+    plural: workloadregistrations
+    singular: workloadregistration
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BaseRepo is the Schema for the baserepoes API
+        description: WorkloadRegistration is the Schema for the workloadregistrations
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,26 +34,32 @@ spec:
           metadata:
             type: object
           spec:
-            description: BaseRepoSpec defines the desired state of BaseRepo
+            description: WorkloadRegistrationSpec defines the desired state of WorkloadRegistration
             properties:
-              branch:
-                minLength: 0
-                type: string
-              commit:
-                type: string
-              path:
-                minLength: 0
-                type: string
-              repo:
-                minLength: 0
+              workload:
+                properties:
+                  branch:
+                    minLength: 0
+                    type: string
+                  path:
+                    minLength: 0
+                    type: string
+                  repo:
+                    minLength: 0
+                    type: string
+                required:
+                - branch
+                - path
+                - repo
+                type: object
+              workspace:
                 type: string
             required:
-            - branch
-            - path
-            - repo
+            - workload
             type: object
           status:
-            description: BaseRepoStatus defines the observed state of BaseRepo
+            description: WorkloadRegistrationStatus defines the observed state of
+              WorkloadRegistration
             properties:
               conditions:
                 items:

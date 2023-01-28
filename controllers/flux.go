@@ -25,13 +25,13 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	DefaulFluxNamespace = "flux-system"
 	FluxInterval        = 10 * time.Second
+	FLuxOwnerLabel      = "kustomize.toolkit.fluxcd.io/name"
 )
 
 type Flux interface {
@@ -42,20 +42,16 @@ type Flux interface {
 type flux struct {
 	ctx    context.Context
 	client client.Client
-	owner  metav1.Object
-	schema *runtime.Scheme
 }
 
 // validate flux implements Flux interface
 var _ Flux = (*flux)(nil)
 
 // new flux function
-func NewFlux(ctx context.Context, client client.Client, owner metav1.Object, schema *runtime.Scheme) Flux {
+func NewFlux(ctx context.Context, client client.Client) Flux {
 	return &flux{
 		ctx:    ctx,
 		client: client,
-		owner:  owner,
-		schema: schema,
 	}
 }
 
@@ -70,9 +66,6 @@ func (f *flux) CreateFluxGitRepository(name, namespace, url, branch, commit stri
 		gitRepo.SetName(name)
 		gitRepo.SetNamespace(namespace)
 
-		// if err := ctrl.SetControllerReference(f.owner, gitRepo, f.schema); err != nil {
-		// 	return nil, err
-		// }
 		repoExists = false
 	}
 	gitRepo.Spec.URL = url
@@ -114,9 +107,7 @@ func (f *flux) CreateFluxKsutomization(name, namespace, targetnamespace, path st
 		}
 		kustomization.SetName(name)
 		kustomization.SetNamespace(namespace)
-		// if err := ctrl.SetControllerReference(f.owner, kustomization, f.schema); err != nil {
-		// 	return nil, err
-		// }
+
 		kustomizationExists = false
 	}
 	kustomization.Spec.Path = path
