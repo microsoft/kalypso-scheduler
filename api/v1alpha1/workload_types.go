@@ -29,14 +29,16 @@ type WorkloadSpec struct {
 }
 
 type DeploymentTargetDetail struct {
-	metav1.ObjectMeta    `json:",inline"`
+	Name string `json:"name"`
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
 	DeploymentTargetSpec `json:",inline"`
 }
 
 // WorkloadStatus defines the observed state of Workload
 type WorkloadStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
