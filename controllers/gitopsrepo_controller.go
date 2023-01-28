@@ -347,9 +347,14 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 //TODO:
-// workflowregistratoin controller
-// workflow controller
-// environment controller
+// environment controller - .environment folder
+//TODO: remove flux resources on deletion
+//TODO: remove hardcoding !!!!
+// gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
+// 	Name: "cluster-config-dev-auth",
+// }
+// update diagram
 // nice description in the PR
 // nice crd output
-// visibility - commit status
+// visibility - commit status, health checks
+//

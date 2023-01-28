@@ -33,45 +33,49 @@ import (
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 )
 
-// BaseRepoReconciler reconciles a BaseRepo object
-type BaseRepoReconciler struct {
+// WorkloadRegistrationReconciler reconciles a WorkloadRegistration object
+type WorkloadRegistrationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=baserepoes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=baserepoes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=baserepoes/finalizers,verbs=update
-func (r *BaseRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations/finalizers,verbs=update
+func (r *WorkloadRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
-	reqLogger.Info("=== Reconciling Base Repo ===")
+	reqLogger.Info("=== Reconciling Workload Registration ===")
 
-	// Fetch the BaseRepo instance
-	baserepo := &schedulerv1alpha1.BaseRepo{}
-	err := r.Get(ctx, req.NamespacedName, baserepo)
+	// Fetch the WorkloadRegistration instance
+	workloadRegistration := &schedulerv1alpha1.WorkloadRegistration{}
+	err := r.Get(ctx, req.NamespacedName, workloadRegistration)
 	if err != nil {
 		ignroredNotFound := client.IgnoreNotFound(err)
 		if ignroredNotFound != nil {
-			reqLogger.Error(err, "Failed to get Base Rep")
+			reqLogger.Error(err, "Failed to get Workload Registration")
 		}
 		return ctrl.Result{}, ignroredNotFound
 	}
 
 	// Check if the resource is being deleted
-	if !baserepo.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !workloadRegistration.ObjectMeta.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	//TODO: delete flux resources if the baserepo is deleted
+	//TODO: delete flux resources if the Worklosad Registration is deleted
 
 	flux := NewFlux(ctx, r.Client)
-	name := fmt.Sprintf("%s-%s", baserepo.Namespace, baserepo.Name)
-	if err := flux.CreateFluxReferenceResources(name, DefaulFluxNamespace, baserepo.Namespace,
-		baserepo.Spec.Repo,
-		baserepo.Spec.Branch,
-		baserepo.Spec.Path,
-		baserepo.Spec.Commit); err != nil {
-		return r.manageFailure(ctx, reqLogger, baserepo, err, "Failed to create flux resources")
+	// Create flux resources
+	name := fmt.Sprintf("%s-%s", workloadRegistration.Namespace, workloadRegistration.Spec.Workspace)
+	err = flux.CreateFluxReferenceResources(name, DefaulFluxNamespace,
+		workloadRegistration.Namespace,
+		workloadRegistration.Spec.Workload.Repo,
+		workloadRegistration.Spec.Workload.Branch,
+		workloadRegistration.Spec.Workload.Path,
+		"")
+
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, workloadRegistration, err, "Failed to create flux resources")
 	}
 
 	condition := metav1.Condition{
@@ -79,9 +83,9 @@ func (r *BaseRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Status: metav1.ConditionTrue,
 		Reason: "FluxResourcesCreated",
 	}
-	meta.SetStatusCondition(&baserepo.Status.Conditions, condition)
+	meta.SetStatusCondition(&workloadRegistration.Status.Conditions, condition)
 
-	updateErr := r.Status().Update(ctx, baserepo)
+	updateErr := r.Status().Update(ctx, workloadRegistration)
 	if updateErr != nil {
 		reqLogger.Info("Error when updating status.")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
@@ -91,7 +95,7 @@ func (r *BaseRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 // Gracefully handle errors
-func (h *BaseRepoReconciler) manageFailure(ctx context.Context, logger logr.Logger, baserepo *schedulerv1alpha1.BaseRepo, err error, message string) (ctrl.Result, error) {
+func (h *WorkloadRegistrationReconciler) manageFailure(ctx context.Context, logger logr.Logger, workloadRegistration *schedulerv1alpha1.WorkloadRegistration, err error, message string) (ctrl.Result, error) {
 	logger.Error(err, message)
 
 	//crerate a condition
@@ -102,9 +106,9 @@ func (h *BaseRepoReconciler) manageFailure(ctx context.Context, logger logr.Logg
 		Message: err.Error(),
 	}
 
-	meta.SetStatusCondition(&baserepo.Status.Conditions, condition)
+	meta.SetStatusCondition(&workloadRegistration.Status.Conditions, condition)
 
-	updateErr := h.Status().Update(ctx, baserepo)
+	updateErr := h.Status().Update(ctx, workloadRegistration)
 	if updateErr != nil {
 		logger.Info("Error when updating status. Requeued")
 		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
@@ -113,9 +117,9 @@ func (h *BaseRepoReconciler) manageFailure(ctx context.Context, logger logr.Logg
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BaseRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *WorkloadRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&schedulerv1alpha1.BaseRepo{}).
+		For(&schedulerv1alpha1.WorkloadRegistration{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }

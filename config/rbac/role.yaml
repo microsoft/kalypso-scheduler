@@ -86,6 +86,32 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
+  - workloadregistrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloadregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloadregistrations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
   - workloads
   verbs:
   - create

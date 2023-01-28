@@ -20,40 +20,38 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BaseRepoSpec defines the desired state of BaseRepo
-type BaseRepoSpec struct {
-	ManifestsSpec `json:",inline"`
-
-	//+optional
-	Commit string `json:"commit,omitempty"`
+// WorkloadRegistrationSpec defines the desired state of WorkloadRegistration
+type WorkloadRegistrationSpec struct {
+	Workload  ManifestsSpec `json:"workload"`
+	Workspace string        `json:"workspace,omitempty"`
 }
 
-// BaseRepoStatus defines the observed state of BaseRepo
-type BaseRepoStatus struct {
+// WorkloadRegistrationStatus defines the observed state of WorkloadRegistration
+type WorkloadRegistrationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// BaseRepo is the Schema for the baserepoes API
-type BaseRepo struct {
+// WorkloadRegistration is the Schema for the workloadregistrations API
+type WorkloadRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BaseRepoSpec   `json:"spec,omitempty"`
-	Status BaseRepoStatus `json:"status,omitempty"`
+	Spec   WorkloadRegistrationSpec   `json:"spec,omitempty"`
+	Status WorkloadRegistrationStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BaseRepoList contains a list of BaseRepo
-type BaseRepoList struct {
+// WorkloadRegistrationList contains a list of WorkloadRegistration
+type WorkloadRegistrationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BaseRepo `json:"items"`
+	Items           []WorkloadRegistration `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BaseRepo{}, &BaseRepoList{})
+	SchemeBuilder.Register(&WorkloadRegistration{}, &WorkloadRegistrationList{})
 }
