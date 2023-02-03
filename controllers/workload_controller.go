@@ -24,6 +24,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -136,7 +137,11 @@ func (r *WorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			deploymentTargetLabels[key] = value
 		}
 		deploymentTargetLabels[schedulerv1alpha1.WorkloadLabel] = workload.Name
-		deploymentTargetLabels[schedulerv1alpha1.WorkspaceLabel] = r.getWorkspaceLabel(workload)
+		workspaceLabel, err := r.getWorkspaceLabel(ctx, workload)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, workload, err, "Failed to get workspace label")
+		}
+		deploymentTargetLabels[schedulerv1alpha1.WorkspaceLabel] = *workspaceLabel
 		deploymentTarget.Labels = deploymentTargetLabels
 
 		if exists {
@@ -176,18 +181,23 @@ func (r *WorkloadReconciler) buildDeploymentTargetName(workload *schedulerv1alph
 	return workload.Name + "-" + deploymentTargetName
 }
 
-func (r *WorkloadReconciler) getWorkspaceLabel(workload *schedulerv1alpha1.Workload) string {
+func (r *WorkloadReconciler) getWorkspaceLabel(ctx context.Context, workload *schedulerv1alpha1.Workload) (*string, error) {
 	workspaceLabel := ""
 	if workload.Labels != nil {
 		fluxKustomizationName := workload.Labels[FluxOwnerLabel]
 		// extract the workspace label from the flux kustomization name by removing the namespace- prefix
 		if fluxKustomizationName != "" {
-			workspaceLabel = strings.SplitN(fluxKustomizationName, "-", 2)[1]
-			// remove the workload name suffix
-			workspaceLabel = strings.TrimSuffix(workspaceLabel, "-"+workload.Name)
+			workloadRegistrationName := strings.SplitN(fluxKustomizationName, "-", 2)[1]
+			// get the workload registration
+			workloadRegistration := &schedulerv1alpha1.WorkloadRegistration{}
+			err := r.Get(ctx, types.NamespacedName{Name: workloadRegistrationName, Namespace: workload.Namespace}, workloadRegistration)
+			if err != nil {
+				return nil, err
+			}
+			workspaceLabel = workloadRegistration.Spec.Workspace
 		}
 	}
-	return workspaceLabel
+	return &workspaceLabel, nil
 }
 
 // Gracefully handle errors

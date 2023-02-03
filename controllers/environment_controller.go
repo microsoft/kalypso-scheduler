@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -48,63 +49,91 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Fetch the Environment instance
 	environment := &schedulerv1alpha1.Environment{}
+	deleted := false
 	err := r.Get(ctx, req.NamespacedName, environment)
 	if err != nil {
 		ignroredNotFound := client.IgnoreNotFound(err)
 		if ignroredNotFound != nil {
 			reqLogger.Error(err, "Failed to get Base Rep")
+			return ctrl.Result{}, ignroredNotFound
+		} else {
+			deleted = true
 		}
-		return ctrl.Result{}, ignroredNotFound
+
 	}
 
 	// Check if the resource is being deleted
 	if !environment.ObjectMeta.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		deleted = true
 	}
 
-	//TODO: delete namespace if the environment is deleted
+	nameSpaceName := req.Name
+	fluxName := req.Name
+	flux := NewFlux(ctx, r.Client)
 
-	// get the namespace and if it does not exist create it
-	nameSpaceName := environment.Name
 	namespace := &v1.Namespace{}
-	err = r.Get(ctx, client.ObjectKey{Name: nameSpaceName}, namespace)
-	if err != nil {
-		ignroredNotFound := client.IgnoreNotFound(err)
-		if ignroredNotFound != nil {
-			return r.manageFailure(ctx, reqLogger, environment, err, "Failed to get Namespace")
+	if deleted {
+		// delete flux resources
+		err := flux.DeleteFluxReferenceResources(fluxName, DefaulFluxNamespace)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, environment, err, "Failed to delete flux resources")
 		}
-		if namespace.Name == "" {
-			namespace.Name = nameSpaceName
-			if err := r.Create(ctx, namespace); err != nil {
-				return r.manageFailure(ctx, reqLogger, environment, err, "Failed to create Namespace")
+		reqLogger.Info(fmt.Sprintf("Flux resources %s in %s namespace deleted successfully", fluxName, DefaulFluxNamespace))
+
+		// delete the namespace
+		err = r.Get(ctx, client.ObjectKey{Name: nameSpaceName}, namespace)
+		if err != nil {
+			ignroredNotFound := client.IgnoreNotFound(err)
+			if ignroredNotFound != nil {
+				return r.manageFailure(ctx, reqLogger, environment, err, "Failed to get Namespace")
 			}
 		}
+		reqLogger.Info(fmt.Sprintf("Namespace %s deleted successfully", nameSpaceName))
 
-	}
+	} else {
+		// get the namespace and if it does not exist create it
+		err = r.Get(ctx, client.ObjectKey{Name: nameSpaceName}, namespace)
+		if err != nil {
+			ignroredNotFound := client.IgnoreNotFound(err)
+			if ignroredNotFound != nil {
+				return r.manageFailure(ctx, reqLogger, environment, err, "Failed to get Namespace")
+			}
+			if namespace.Name == "" {
+				namespace.Name = nameSpaceName
+				if err := r.Create(ctx, namespace); err != nil {
+					return r.manageFailure(ctx, reqLogger, environment, err, "Failed to create Namespace")
+				}
+			}
 
-	//TODO: delete flux resources if the environment is deleted
+		}
 
-	fluxName := environment.Name
-	flux := NewFlux(ctx, r.Client)
-	if err := flux.CreateFluxReferenceResources(fluxName, DefaulFluxNamespace, nameSpaceName,
-		environment.Spec.ControlPlane.Repo,
-		environment.Spec.ControlPlane.Branch,
-		environment.Spec.ControlPlane.Path,
-		""); err != nil {
-		return r.manageFailure(ctx, reqLogger, environment, err, "Failed to create flux resources for the environment")
-	}
+		reqLogger.Info(fmt.Sprintf("Namespace %s created successfully", nameSpaceName))
 
-	condition := metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionTrue,
-		Reason: "FluxResourcesCreated",
-	}
-	meta.SetStatusCondition(&environment.Status.Conditions, condition)
+		//TODO: delete flux resources if the environment is deleted
 
-	updateErr := r.Status().Update(ctx, environment)
-	if updateErr != nil {
-		reqLogger.Info("Error when updating status.")
-		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		if err := flux.CreateFluxReferenceResources(fluxName, DefaulFluxNamespace, nameSpaceName,
+			environment.Spec.ControlPlane.Repo,
+			environment.Spec.ControlPlane.Branch,
+			environment.Spec.ControlPlane.Path,
+			""); err != nil {
+			return r.manageFailure(ctx, reqLogger, environment, err, "Failed to create flux resources for the environment")
+		}
+
+		reqLogger.Info(fmt.Sprintf("Flux resources %s in %s namespace created successfully", fluxName, DefaulFluxNamespace))
+
+		condition := metav1.Condition{
+			Type:   "Ready",
+			Status: metav1.ConditionTrue,
+			Reason: "FluxResourcesCreated",
+		}
+		meta.SetStatusCondition(&environment.Status.Conditions, condition)
+
+		updateErr := r.Status().Update(ctx, environment)
+		if updateErr != nil {
+			reqLogger.Info("Error when updating status.")
+			return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		}
+
 	}
 
 	return ctrl.Result{}, nil

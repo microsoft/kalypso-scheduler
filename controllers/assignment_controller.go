@@ -364,45 +364,24 @@ func (r *AssignmentReconciler) findAssignmentsForTemplate(object client.Object) 
 	return requests
 }
 
-// findAssignmentsForConfigMap finds all assignments that use the config map
+// findAssignmentsForConfigMap finds all assignments
 func (r *AssignmentReconciler) findAssignmentsForConfigMap(object client.Object) []reconcile.Request {
-	//get config map
-	configMap := &corev1.ConfigMap{}
-	err := r.Get(context.TODO(), client.ObjectKey{
-		Name:      object.GetName(),
-		Namespace: object.GetNamespace(),
-	}, configMap)
-	if err != nil {
-		return []reconcile.Request{}
-	}
 
-	//get cluster types in this namespace
-	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
-	err = r.List(context.TODO(), clusterTypes, client.InNamespace(object.GetNamespace()))
-	if err != nil {
-		return []reconcile.Request{}
-	}
-
-	// iterate over the cluster types and check if the config map is applicable
 	var requests []reconcile.Request
-	for _, clusterType := range clusterTypes.Items {
-		if r.isConfigForClusterType(configMap, &clusterType) {
-			assignments := &schedulerv1alpha1.AssignmentList{}
-			err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{ClusterTypeField: clusterType.Name})
-			if err != nil {
-				return []reconcile.Request{}
-			}
+	assignments := &schedulerv1alpha1.AssignmentList{}
+	err := r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
 
-			for _, item := range assignments.Items {
-				request := reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      item.GetName(),
-						Namespace: item.GetNamespace(),
-					},
-				}
-				requests = append(requests, request)
-			}
+	for _, item := range assignments.Items {
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
 		}
+		requests = append(requests, request)
 	}
 	return requests
 }
