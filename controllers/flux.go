@@ -37,6 +37,7 @@ const (
 
 type Flux interface {
 	CreateFluxReferenceResources(name, namespace, targetnamespace, url, branch, path, commit string) error
+	DeleteFluxReferenceResources(name, namespace string) error
 }
 
 // implements Flux interface
@@ -147,6 +148,38 @@ func (f *flux) CreateFluxReferenceResources(name, namespace, targetnamespace, ur
 	_, err = f.CreateFluxKsutomization(name, namespace, targetnamespace, path)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (f *flux) DeleteFluxReferenceResources(name, namespace string) error {
+	//delete Flux Kustomization
+	kustomization := &kustomizev1.Kustomization{}
+	err := f.client.Get(f.ctx, client.ObjectKey{Name: name, Namespace: namespace}, kustomization)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		err = f.client.Delete(f.ctx, kustomization)
+		if err != nil {
+			return err
+		}
+	}
+
+	//delete Flux GitRepository
+	gitRepo := &sourcev1.GitRepository{}
+	err = f.client.Get(f.ctx, client.ObjectKey{Name: name, Namespace: namespace}, gitRepo)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		err = f.client.Delete(f.ctx, gitRepo)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

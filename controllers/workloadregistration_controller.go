@@ -48,47 +48,59 @@ func (r *WorkloadRegistrationReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the WorkloadRegistration instance
 	workloadRegistration := &schedulerv1alpha1.WorkloadRegistration{}
+	deleted := false
 	err := r.Get(ctx, req.NamespacedName, workloadRegistration)
 	if err != nil {
 		ignroredNotFound := client.IgnoreNotFound(err)
 		if ignroredNotFound != nil {
 			reqLogger.Error(err, "Failed to get Workload Registration")
+			return ctrl.Result{}, ignroredNotFound
+		} else {
+			deleted = true
 		}
-		return ctrl.Result{}, ignroredNotFound
+
 	}
 
 	// Check if the resource is being deleted
 	if !workloadRegistration.ObjectMeta.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		deleted = true
 	}
-
-	//TODO: delete flux resources if the Worklosad Registration is deleted
 
 	flux := NewFlux(ctx, r.Client)
-	// Create flux resources
-	name := fmt.Sprintf("%s-%s-%s", workloadRegistration.Namespace, workloadRegistration.Spec.Workspace, workloadRegistration.Name)
-	err = flux.CreateFluxReferenceResources(name, DefaulFluxNamespace,
-		workloadRegistration.Namespace,
-		workloadRegistration.Spec.Workload.Repo,
-		workloadRegistration.Spec.Workload.Branch,
-		workloadRegistration.Spec.Workload.Path,
-		"")
+	name := fmt.Sprintf("%s-%s", req.Namespace, req.Name)
+	if deleted {
+		err := flux.DeleteFluxReferenceResources(name, DefaulFluxNamespace)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, workloadRegistration, err, "Failed to delete flux resources")
+		}
+		reqLogger.Info(fmt.Sprintf("Flux resources %s in %s namespace deleted successfully", name, DefaulFluxNamespace))
+	} else {
 
-	if err != nil {
-		return r.manageFailure(ctx, reqLogger, workloadRegistration, err, "Failed to create flux resources")
-	}
+		// Create flux resources
 
-	condition := metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionTrue,
-		Reason: "FluxResourcesCreated",
-	}
-	meta.SetStatusCondition(&workloadRegistration.Status.Conditions, condition)
+		err = flux.CreateFluxReferenceResources(name, DefaulFluxNamespace,
+			workloadRegistration.Namespace,
+			workloadRegistration.Spec.Workload.Repo,
+			workloadRegistration.Spec.Workload.Branch,
+			workloadRegistration.Spec.Workload.Path,
+			"")
 
-	updateErr := r.Status().Update(ctx, workloadRegistration)
-	if updateErr != nil {
-		reqLogger.Info("Error when updating status.")
-		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, workloadRegistration, err, "Failed to create flux resources")
+		}
+
+		condition := metav1.Condition{
+			Type:   "Ready",
+			Status: metav1.ConditionTrue,
+			Reason: "FluxResourcesCreated",
+		}
+		meta.SetStatusCondition(&workloadRegistration.Status.Conditions, condition)
+
+		updateErr := r.Status().Update(ctx, workloadRegistration)
+		if updateErr != nil {
+			reqLogger.Info("Error when updating status.")
+			return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		}
 	}
 
 	return ctrl.Result{}, nil
