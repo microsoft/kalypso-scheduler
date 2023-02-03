@@ -109,8 +109,6 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 		reqLogger.Info(fmt.Sprintf("Namespace %s created successfully", nameSpaceName))
 
-		//TODO: delete flux resources if the environment is deleted
-
 		if err := flux.CreateFluxReferenceResources(fluxName, DefaulFluxNamespace, nameSpaceName,
 			environment.Spec.ControlPlane.Repo,
 			environment.Spec.ControlPlane.Branch,
