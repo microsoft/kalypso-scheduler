@@ -125,7 +125,12 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		//iterate over all assignment packages
 		for _, assignmentPackage := range assignmentPackages.Items {
-			repoContent.AssignmentPackages[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = assignmentPackage.Spec
+			clusterTypeContent, ok := repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]]
+			if !ok {
+				clusterTypeContent = *schedulerv1alpha1.NewClusterContentType()
+				repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = clusterTypeContent
+			}
+			clusterTypeContent.DeploymentTargets[assignmentPackage.Labels[schedulerv1alpha1.DeploymentTargetLabel]] = assignmentPackage.Spec
 		}
 
 		// list all BaseRepos in the namespace
@@ -186,7 +191,9 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					if err != nil {
 						return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to create a GithubRepo")
 					}
-					_, err = githubRepo.CreatePR(fmt.Sprintf("deployment/%s", repoContentHashString), repoContent)
+
+					_, err = githubRepo.CreatePR(r.getDeploymentBranchName(), repoContent)
+
 					if err != nil {
 						if r.ignorePrAlreadyExists(err) == nil {
 							reqLogger.Info("PR already exists")
@@ -248,6 +255,10 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *GitOpsRepoReconciler) getDeploymentBranchName() string {
+	return fmt.Sprintf("deployment/%s", time.Now().Format("2006-01-02-15-04-05"))
 }
 
 // ignorePrAlreadyExists returns nil if the error is a PR already exists error
@@ -347,12 +358,13 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 //TODO:
-// environment controller - .environment folder
+// environment controller - .environment folder automerge
 //TODO: remove flux resources on deletion
 //TODO: remove hardcoding !!!!
 // gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
 // 	Name: "cluster-config-dev-auth",
 // }
+// TODO: have own labels namespace
 // update diagram
 // nice description in the PR
 // nice crd output

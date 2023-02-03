@@ -31,7 +31,8 @@ import (
 const (
 	DefaulFluxNamespace = "flux-system"
 	FluxInterval        = 10 * time.Second
-	FLuxOwnerLabel      = "kustomize.toolkit.fluxcd.io/name"
+	FluxOwnerLabel      = "kustomize.toolkit.fluxcd.io/name"
+	FluxNamespaceLabel  = "kustomize.toolkit.fluxcd.io/namespace"
 )
 
 type Flux interface {

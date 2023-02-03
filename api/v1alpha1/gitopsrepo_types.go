@@ -32,14 +32,25 @@ type GitOpsRepoSpec struct {
 }
 
 type RepoContentType struct {
-	AssignmentPackages map[string]AssignmentPackageSpec
-	BaseRepo           BaseRepoSpec
+	ClusterTypes map[string]ClusterContentType
+	BaseRepo     BaseRepoSpec
+}
+
+type ClusterContentType struct {
+	DeploymentTargets map[string]AssignmentPackageSpec
+}
+
+// NewClusterContentType creates a new ClusterContentType
+func NewClusterContentType() *ClusterContentType {
+	return &ClusterContentType{
+		DeploymentTargets: make(map[string]AssignmentPackageSpec),
+	}
 }
 
 // newRepoContentType creates a new RepoContentType
 func NewRepoContentType() *RepoContentType {
 	return &RepoContentType{
-		AssignmentPackages: make(map[string]AssignmentPackageSpec),
+		ClusterTypes: make(map[string]ClusterContentType),
 	}
 }
 
