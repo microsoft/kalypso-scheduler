@@ -31,7 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+
+	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/microsoft/kalypso-scheduler/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +47,10 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(kalypsov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(schedulerv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(kustomizev1.AddToScheme(scheme))
+	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,7 +77,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "7df34092.kalypso.scheduler",
+		LeaderElectionID:       "7df34092.kalypso.io",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -89,11 +95,53 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DeploymentTargetReconciler{
+	if err = (&controllers.SchedulingPolicyReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentTarget")
+		setupLog.Error(err, "unable to create controller", "controller", "SchedulingPolicy")
+		os.Exit(1)
+	}
+	if err = (&controllers.WorkloadReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Workload")
+		os.Exit(1)
+	}
+	if err = (&controllers.AssignmentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Assignment")
+		os.Exit(1)
+	}
+	if err = (&controllers.GitOpsRepoReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GitOpsRepo")
+		os.Exit(1)
+	}
+	if err = (&controllers.BaseRepoReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BaseRepo")
+		os.Exit(1)
+	}
+	if err = (&controllers.WorkloadRegistrationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadRegistration")
+		os.Exit(1)
+	}
+	if err = (&controllers.EnvironmentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Environment")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

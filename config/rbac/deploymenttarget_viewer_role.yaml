@@ -12,7 +12,7 @@ metadata:
   name: deploymenttarget-viewer-role
 rules:
 - apiGroups:
-  - kalypso.kalypso.scheduler
+  - scheduler.kalypso.io
   resources:
   - deploymenttargets
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kalypso.kalypso.scheduler
+  - scheduler.kalypso.io
   resources:
   - deploymenttargets/status
   verbs:

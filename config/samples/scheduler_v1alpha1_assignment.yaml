@@ -1,0 +1,12 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Assignment
+metadata:
+  labels:
+    app.kubernetes.io/name: assignment
+    app.kubernetes.io/instance: assignment-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+  name: assignment-sample
+spec:
+  # TODO(user): Add fields here

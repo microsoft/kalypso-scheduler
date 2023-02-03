@@ -1,0 +1,23 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: SchedulingPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: schedulingpolicy
+    app.kubernetes.io/instance: schedulingpolicy-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+    customLabel: "foo"
+  name: schedulingpolicy-sample
+spec:
+  deploymentTargetSelector:
+    workspace: kaizen-app-team
+    labelSelector:
+      matchLabels:
+        purpose: functional-test
+        edge: "true"
+  clusterTypeSelector:
+    labelSelector:
+      matchLabels:
+        restricted: "true"
+        edge: "true"

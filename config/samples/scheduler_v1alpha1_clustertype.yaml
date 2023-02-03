@@ -1,0 +1,16 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: ClusterType
+metadata:
+  labels:
+    app.kubernetes.io/name: clustertype
+    app.kubernetes.io/instance: clustertype-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+    region: east-us
+    restricted: "true"
+    edge: "true"
+  name: drone
+spec:
+  reconciler: argocd
+  namespaceService: default

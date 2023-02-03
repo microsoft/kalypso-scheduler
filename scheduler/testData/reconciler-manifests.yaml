@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello-world-app-functional-test
+  namespace: dev-kaizen-app-team-hello-world-app-functional-test
+spec:
+  destination:
+    name: defualt
+    namespace: dev-kaizen-app-team-hello-world-app-functional-test
+  project: project
+  source:
+    path: ./functional-test
+    repoURL: https://github.com/microsoft/kalypso-app-gitops
+    targetRevision: dev

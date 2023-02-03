@@ -1,12 +1,12 @@
-apiVersion: kalypso.kalypso.scheduler/v1alpha1
-kind: DeploymentTarget
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: AssignmentPackage
 metadata:
   labels:
-    app.kubernetes.io/name: deploymenttarget
-    app.kubernetes.io/instance: deploymenttarget-sample
+    app.kubernetes.io/name: assignmentpackage
+    app.kubernetes.io/instance: assignmentpackage-sample
     app.kubernetes.io/part-of: kalypso-scheduler
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: kalypso-scheduler
-  name: deploymenttarget-sample
+  name: assignmentpackage-sample
 spec:
   # TODO(user): Add fields here
