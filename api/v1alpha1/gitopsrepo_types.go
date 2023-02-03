@@ -29,6 +29,8 @@ const (
 // GitOpsRepoSpec defines the desired state of GitOpsRepo
 type GitOpsRepoSpec struct {
 	ManifestsSpec `json:",inline"`
+	//TODO
+	//AutoMerge
 }
 
 type RepoContentType struct {

@@ -1,0 +1,27 @@
+# permissions for end users to view environments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: environment-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: kalypso-scheduler
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+  name: environment-viewer-role
+rules:
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - environments/status
+  verbs:
+  - get
