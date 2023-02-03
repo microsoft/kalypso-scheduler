@@ -19,6 +19,7 @@ package scheduler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -26,11 +27,13 @@ import (
 
 	"net/url"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-github/v49/github"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type GithubRepo interface {
@@ -44,6 +47,7 @@ type githubRepo struct {
 	sourceRepo  string
 	client      *github.Client
 	ctx         context.Context
+	logger      logr.Logger
 }
 
 // validate githubRepo implements GithubRepo interface
@@ -79,12 +83,18 @@ func NewGithubRepo(ctx context.Context, repo *schedulerv1alpha1.GitOpsRepoSpec) 
 		sourceRepo:  *sourceRepo,
 		client:      getGitHubClient(ctx),
 		ctx:         ctx,
+		logger:      log.FromContext(ctx),
 	}, nil
 }
 
 // implement CreatePR function
 func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.RepoContentType) (*string, error) {
-	newBranch, err := g.getBranch(g.repo.Branch, prBranchName)
+	baseBranch, err := g.getBaseBranch(g.repo.Branch)
+	if err != nil {
+		return nil, err
+	}
+
+	newBranch, err := g.getBranch(prBranchName, baseBranch)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +109,11 @@ func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.Re
 	}
 
 	err = g.pushCommit(newBranch, tree)
+	if err != nil {
+		return nil, err
+	}
+
+	err = g.cleanPullRequests(g.repo.Branch)
 	if err != nil {
 		return nil, err
 	}
@@ -129,15 +144,19 @@ func parseRepoURL(repoUrl string) (owner, repo *string, err error) {
 	return owner, repo, nil
 }
 
-// gets the branch to commit to
-func (g *githubRepo) getBranch(baseBranchName, prBranchName string) (ref *github.Reference, err error) {
-	if ref, _, err = g.client.Git.GetRef(g.ctx, g.sourceOwner, g.sourceRepo, "refs/heads/"+prBranchName); err == nil {
-		return ref, nil
+func (g *githubRepo) getBaseBranch(baseBranchName string) (ref *github.Reference, err error) {
+
+	if ref, _, err = g.client.Git.GetRef(g.ctx, g.sourceOwner, g.sourceRepo, "refs/heads/"+baseBranchName); err != nil {
+		return nil, err
 	}
 
-	var baseRef *github.Reference
-	if baseRef, _, err = g.client.Git.GetRef(g.ctx, g.sourceOwner, g.sourceRepo, "refs/heads/"+baseBranchName); err != nil {
-		return nil, err
+	return ref, nil
+}
+
+// gets the branch to commit to
+func (g *githubRepo) getBranch(prBranchName string, baseRef *github.Reference) (ref *github.Reference, err error) {
+	if ref, _, err = g.client.Git.GetRef(g.ctx, g.sourceOwner, g.sourceRepo, "refs/heads/"+prBranchName); err == nil {
+		return ref, nil
 	}
 
 	newRef := &github.Reference{Ref: github.String("refs/heads/" + prBranchName), Object: &github.GitObject{SHA: baseRef.Object.SHA}}
@@ -145,9 +164,9 @@ func (g *githubRepo) getBranch(baseBranchName, prBranchName string) (ref *github
 	return ref, err
 }
 
-func (g *githubRepo) getTreeEntry(clusterType, fileName, content string) *github.TreeEntry {
+func (g *githubRepo) getTreeEntry(clusterType, deploymentTarget, fileName, content string) *github.TreeEntry {
 	return &github.TreeEntry{
-		Path:    github.String(clusterType + "/" + fileName),
+		Path:    github.String(clusterType + "/" + deploymentTarget + "/" + fileName),
 		Type:    github.String("blob"),
 		Content: github.String(content),
 		Mode:    github.String("100644"),
@@ -184,16 +203,25 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 			// get root folder of the entry
 			path := strings.Split(entry.GetPath(), "/")
 			if len(path) > 1 { // ignore the root folder
-				rootFolder := path[0]
-				if !strings.HasPrefix(rootFolder, ".") {
-					if _, ok := (*&content.AssignmentPackages)[rootFolder]; !ok {
+				clusterTypeFolder := path[0]
+				if !strings.HasPrefix(clusterTypeFolder, ".") { // not something like .github
+					clusterTypeContent, ok := content.ClusterTypes[clusterTypeFolder]
+					if ok {
+						deploymentTargetFolder := path[1]
+						_, ok = clusterTypeContent.DeploymentTargets[deploymentTargetFolder]
+					}
+					if !ok {
+						// delete the entry
+						g.logger.Info("--------------------------deleting file", "path", entry.GetPath())
+
 						entries = append(entries, &github.TreeEntry{
 							Path: github.String(entry.GetPath()),
 							Mode: github.String("100644"),
 						})
+					} else {
+						g.logger.Info("--------------------------keeping file", "path", entry.GetPath())
 					}
 				}
-
 			}
 		}
 	}
@@ -209,28 +237,32 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 	}
 
 	//iterate through the content and add the files
-	for k, v := range *&content.AssignmentPackages {
-		reconcilerManifests, err := g.getManifestsYaml(v.ReconcilerManifests)
-		if err != nil {
-			return nil, false, err
-		}
-		manifestsEntry := g.getTreeEntry(k, "reconciler.yaml", reconcilerManifests)
-		entries = append(entries, manifestsEntry)
+	for kct, ct := range *&content.ClusterTypes {
+		// iterate through the deployment targets
+		for kdt, dt := range ct.DeploymentTargets {
+			reconcilerManifests, err := g.getManifestsYaml(dt.ReconcilerManifests)
+			if err != nil {
+				return nil, false, err
+			}
+			manifestsEntry := g.getTreeEntry(kct, kdt, "reconciler.yaml", reconcilerManifests)
+			entries = append(entries, manifestsEntry)
 
-		namespaceManifests, err := g.getManifestsYaml(v.NamespaceManifests)
-		if err != nil {
-			return nil, false, err
-		}
-		namespaceEntry := g.getTreeEntry(k, "namespace.yaml", namespaceManifests)
-		entries = append(entries, namespaceEntry)
+			namespaceManifests, err := g.getManifestsYaml(dt.NamespaceManifests)
+			if err != nil {
+				return nil, false, err
+			}
+			namespaceEntry := g.getTreeEntry(kct, kdt, "namespace.yaml", namespaceManifests)
+			entries = append(entries, namespaceEntry)
 
-		configManifests, err := g.getManifestsYaml(v.ConfigManifests)
-		if err != nil {
-			return nil, false, err
-		}
-		if configManifests != "" {
-			configEntry := g.getTreeEntry(k, "config.yaml", configManifests)
-			entries = append(entries, configEntry)
+			configManifests, err := g.getManifestsYaml(dt.ConfigManifests)
+			if err != nil {
+				return nil, false, err
+			}
+			if configManifests != "" {
+				configEntry := g.getTreeEntry(kct, kdt, "config.yaml", configManifests)
+				entries = append(entries, configEntry)
+			}
+
 		}
 	}
 
@@ -300,9 +332,38 @@ func (g *githubRepo) pushCommit(ref *github.Reference, tree *github.Tree) (err e
 	return err
 }
 
+// delete existing PRs to the branch as they are no longer valid
+func (g *githubRepo) cleanPullRequests(baseBranchName string) error {
+	//list esisting pull requests
+	prs, _, err := g.client.PullRequests.List(g.ctx, g.sourceOwner, g.sourceRepo, &github.PullRequestListOptions{
+		State: "open",
+		Base:  baseBranchName,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, pr := range prs {
+		g.logger.Info("Deleting Branch", "branch", *pr.Head.Ref)
+		_, err := g.client.Git.DeleteRef(g.ctx, g.sourceOwner, g.sourceRepo, "heads/"+*pr.Head.Ref)
+		if err != nil {
+			return err
+		}
+		pr.State = github.String("closed")
+		g.logger.Info("Closing PR", "pr", *pr.Number)
+		_, _, err = g.client.PullRequests.Edit(g.ctx, g.sourceOwner, g.sourceRepo, *pr.Number, pr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 func (g *githubRepo) createPullRequest(baseBranchName, prBranchName string, isPromoted bool) (*string, error) {
 
-	prSubject := "Update manifests"
+	prSubject := fmt.Sprintf("Update manifests in %s from %s", baseBranchName, prBranchName)
 	prDescription := "This PR updates the manifests in GitOps Repo"
 
 	newPR := &github.NewPullRequest{

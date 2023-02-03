@@ -56,8 +56,6 @@ func TestNewGithubRepo(t *testing.T) {
 
 // Test CreatePR
 func TestCreatePR(t *testing.T) {
-	fmt.Println("Say hello")
-	t.Log("Say hello")
 	githubRepo, err := NewGithubRepo(ctx,
 		gitOpsRepo)
 	if err != nil {
@@ -82,7 +80,8 @@ func TestCreatePR(t *testing.T) {
 	}
 
 	repoContentType := kalypsov1alpha1.NewRepoContentType()
-	repoContentType.AssignmentPackages["drone"] = *assignmentPackageSpec
+	repoContentType.ClusterTypes["drone"] = *kalypsov1alpha1.NewClusterContentType()
+	repoContentType.ClusterTypes["drone"].DeploymentTargets["hello-world-app-functional-test"] = *assignmentPackageSpec
 
 	_, err = githubRepo.CreatePR("unit-test", repoContentType)
 	if err != nil {
