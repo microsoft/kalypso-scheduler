@@ -179,10 +179,12 @@ func (r *WorkloadReconciler) buildDeploymentTargetName(workload *schedulerv1alph
 func (r *WorkloadReconciler) getWorkspaceLabel(workload *schedulerv1alpha1.Workload) string {
 	workspaceLabel := ""
 	if workload.Labels != nil {
-		fluxKustomizationName := workload.Labels[FLuxOwnerLabel]
+		fluxKustomizationName := workload.Labels[FluxOwnerLabel]
 		// extract the workspace label from the flux kustomization name by removing the namespace- prefix
 		if fluxKustomizationName != "" {
 			workspaceLabel = strings.SplitN(fluxKustomizationName, "-", 2)[1]
+			// remove the workload name suffix
+			workspaceLabel = strings.TrimSuffix(workspaceLabel, "-"+workload.Name)
 		}
 	}
 	return workspaceLabel

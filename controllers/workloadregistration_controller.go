@@ -66,7 +66,7 @@ func (r *WorkloadRegistrationReconciler) Reconcile(ctx context.Context, req ctrl
 
 	flux := NewFlux(ctx, r.Client)
 	// Create flux resources
-	name := fmt.Sprintf("%s-%s", workloadRegistration.Namespace, workloadRegistration.Spec.Workspace)
+	name := fmt.Sprintf("%s-%s-%s", workloadRegistration.Namespace, workloadRegistration.Spec.Workspace, workloadRegistration.Name)
 	err = flux.CreateFluxReferenceResources(name, DefaulFluxNamespace,
 		workloadRegistration.Namespace,
 		workloadRegistration.Spec.Workload.Repo,

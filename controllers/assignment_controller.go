@@ -293,17 +293,22 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType) bool {
 	matches := true
 	for key, value := range config.Labels {
-		if key == schedulerv1alpha1.ClusterTypeLabel {
-			if value != clusterType.Name {
-				matches = false
-				break
+		//TODO: have own labels namespace
+		if key != FluxOwnerLabel && key != FluxNamespaceLabel && key != platformConfigLabel {
+			if key == schedulerv1alpha1.ClusterTypeLabel {
+				if value != clusterType.Name {
+					matches = false
+					break
+				}
+			} else {
+				clusterTypeLabeValue := clusterType.Labels[key]
+				if clusterTypeLabeValue != value {
+					matches = false
+					break
+				}
 			}
 		}
-		clusterTypeLabeVaue, ok := clusterType.Labels[key]
-		if ok && clusterTypeLabeVaue != value {
-			matches = false
-			break
-		}
+
 	}
 	return matches
 }
