@@ -59,6 +59,8 @@ var (
 	commitMessage           string = "Kalypso Scheduler commit"
 	Promoted_Commit_Id_Path string = ".github/tracking/Promoted_Commit_Id"
 	prometedLabel           string = "promoted"
+	readmeFilename          string = "README.md"
+	readmeContent           string = "This folder contains deployment targets scheduled on the cluster type"
 )
 
 func getGitHubClient(ctx context.Context) *github.Client {
@@ -164,9 +166,9 @@ func (g *githubRepo) getBranch(prBranchName string, baseRef *github.Reference) (
 	return ref, err
 }
 
-func (g *githubRepo) getTreeEntry(clusterType, deploymentTarget, fileName, content string) *github.TreeEntry {
+func (g *githubRepo) getTreeEntry(path, fileName, content string) *github.TreeEntry {
 	return &github.TreeEntry{
-		Path:    github.String(clusterType + "/" + deploymentTarget + "/" + fileName),
+		Path:    github.String(path + "/" + fileName),
 		Type:    github.String("blob"),
 		Content: github.String(content),
 		Mode:    github.String("100644"),
@@ -208,7 +210,14 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 					clusterTypeContent, ok := content.ClusterTypes[clusterTypeFolder]
 					if ok {
 						deploymentTargetFolder := path[1]
-						_, ok = clusterTypeContent.DeploymentTargets[deploymentTargetFolder]
+						if deploymentTargetFolder != readmeFilename {
+							if clusterTypeContent.DeploymentTargets != nil {
+								_, ok = clusterTypeContent.DeploymentTargets[deploymentTargetFolder]
+							} else {
+								ok = false
+							}
+						}
+
 					}
 					if !ok {
 						// delete the entry
@@ -238,32 +247,37 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 
 	//iterate through the content and add the files
 	for kct, ct := range *&content.ClusterTypes {
-		// iterate through the deployment targets
-		for kdt, dt := range ct.DeploymentTargets {
-			reconcilerManifests, err := g.getManifestsYaml(dt.ReconcilerManifests)
-			if err != nil {
-				return nil, false, err
-			}
-			manifestsEntry := g.getTreeEntry(kct, kdt, "reconciler.yaml", reconcilerManifests)
-			entries = append(entries, manifestsEntry)
+		if ct.DeploymentTargets != nil {
+			// iterate through the deployment targets
+			for kdt, dt := range ct.DeploymentTargets {
+				path := kct + "/" + kdt
+				reconcilerManifests, err := g.getManifestsYaml(dt.ReconcilerManifests)
+				if err != nil {
+					return nil, false, err
+				}
+				manifestsEntry := g.getTreeEntry(path, "reconciler.yaml", reconcilerManifests)
+				entries = append(entries, manifestsEntry)
 
-			namespaceManifests, err := g.getManifestsYaml(dt.NamespaceManifests)
-			if err != nil {
-				return nil, false, err
-			}
-			namespaceEntry := g.getTreeEntry(kct, kdt, "namespace.yaml", namespaceManifests)
-			entries = append(entries, namespaceEntry)
+				namespaceManifests, err := g.getManifestsYaml(dt.NamespaceManifests)
+				if err != nil {
+					return nil, false, err
+				}
+				namespaceEntry := g.getTreeEntry(path, "namespace.yaml", namespaceManifests)
+				entries = append(entries, namespaceEntry)
 
-			configManifests, err := g.getManifestsYaml(dt.ConfigManifests)
-			if err != nil {
-				return nil, false, err
-			}
-			if configManifests != "" {
-				configEntry := g.getTreeEntry(kct, kdt, "config.yaml", configManifests)
-				entries = append(entries, configEntry)
-			}
+				configManifests, err := g.getManifestsYaml(dt.ConfigManifests)
+				if err != nil {
+					return nil, false, err
+				}
+				if configManifests != "" {
+					configEntry := g.getTreeEntry(path, "config.yaml", configManifests)
+					entries = append(entries, configEntry)
+				}
 
+			}
 		}
+		readmeEntry := g.getTreeEntry(kct, readmeFilename, readmeContent)
+		entries = append(entries, readmeEntry)
 	}
 
 	tree, _, err = g.client.Git.CreateTree(g.ctx, g.sourceOwner, g.sourceRepo, *ref.Object.SHA, entries)

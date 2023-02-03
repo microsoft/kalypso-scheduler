@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -113,38 +114,9 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		//log all assignments and schedule policies are ready
 		reqLogger.Info("All Assignments and Schedule Policies are ready")
 
-		// create repoContent map
-		repoContent := schedulerv1alpha1.NewRepoContentType()
-
-		//fetch all assignment packages in the namespace
-		assignmentPackages := &schedulerv1alpha1.AssignmentPackageList{}
-		err = r.List(ctx, assignmentPackages, client.InNamespace(gitopsrepo.Namespace))
+		repoContent, err := r.getRepoContent(ctx, reqLogger, gitopsrepo)
 		if err != nil {
-			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list AssignmentPackages")
-		}
-
-		//iterate over all assignment packages
-		for _, assignmentPackage := range assignmentPackages.Items {
-			clusterTypeContent, ok := repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]]
-			if !ok {
-				clusterTypeContent = *schedulerv1alpha1.NewClusterContentType()
-				repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = clusterTypeContent
-			}
-			clusterTypeContent.DeploymentTargets[assignmentPackage.Labels[schedulerv1alpha1.DeploymentTargetLabel]] = assignmentPackage.Spec
-		}
-
-		// list all BaseRepos in the namespace
-		baserepos := &schedulerv1alpha1.BaseRepoList{}
-		err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace))
-		if err != nil {
-			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to list BaseRepos")
-		}
-		if len(baserepos.Items) > 1 {
-			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "There should be only one BaseRepo in the namespace")
-		}
-
-		if len(baserepos.Items) == 1 {
-			repoContent.BaseRepo = baserepos.Items[0].Spec
+			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to get repo content")
 		}
 
 		// get the hash of the repoContent
@@ -272,6 +244,57 @@ func (r *GitOpsRepoReconciler) ignorePrAlreadyExists(err error) error {
 	return err
 }
 
+func (r *GitOpsRepoReconciler) getRepoContent(ctx context.Context, logger logr.Logger, gitopsrepo *schedulerv1alpha1.GitOpsRepo) (*schedulerv1alpha1.RepoContentType, error) {
+	// create repoContent map
+	repoContent := schedulerv1alpha1.NewRepoContentType()
+
+	//fetch all cluster types in the namespace
+	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
+	err := r.List(ctx, clusterTypes, client.InNamespace(gitopsrepo.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	//iterate over all cluster types
+	for _, clusterType := range clusterTypes.Items {
+		clusterTypeContent := schedulerv1alpha1.NewClusterContentType()
+		repoContent.ClusterTypes[clusterType.Name] = *clusterTypeContent
+	}
+
+	//fetch all assignment packages in the namespace
+	assignmentPackages := &schedulerv1alpha1.AssignmentPackageList{}
+	err = r.List(ctx, assignmentPackages, client.InNamespace(gitopsrepo.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	//iterate over all assignment packages
+	for _, assignmentPackage := range assignmentPackages.Items {
+		clusterTypeContent, ok := repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]]
+		if !ok {
+			clusterTypeContent = *schedulerv1alpha1.NewClusterContentType()
+			repoContent.ClusterTypes[assignmentPackage.Labels[schedulerv1alpha1.ClusterTypeLabel]] = clusterTypeContent
+		}
+		clusterTypeContent.DeploymentTargets[assignmentPackage.Labels[schedulerv1alpha1.DeploymentTargetLabel]] = assignmentPackage.Spec
+	}
+
+	// list all BaseRepos in the namespace
+	baserepos := &schedulerv1alpha1.BaseRepoList{}
+	err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace))
+	if err != nil {
+		return nil, err
+	}
+	if len(baserepos.Items) > 1 {
+		return nil, errors.New("There should be only one BaseRepo in the namespace")
+	}
+
+	if len(baserepos.Items) == 1 {
+		repoContent.BaseRepo = baserepos.Items[0].Spec
+	}
+
+	return repoContent, nil
+}
+
 // Gracefully handle errors
 func (h *GitOpsRepoReconciler) manageFailure(ctx context.Context, logger logr.Logger, gitopsrepo *schedulerv1alpha1.GitOpsRepo, err error, message string) (ctrl.Result, error) {
 	logger.Error(err, message)
@@ -353,20 +376,19 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&source.Kind{Type: &schedulerv1alpha1.Assignment{}},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
+			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		WithEventFilter(r.normalPredicate()).
 		Complete(r)
 }
 
-//TODO:
-// environment controller - .environment folder automerge
-//TODO: remove flux resources on deletion
+// update diagram
+// visibility - commit status, health checks
 //TODO: remove hardcoding !!!!
 // gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
 // 	Name: "cluster-config-dev-auth",
 // }
-// TODO: have own labels namespace
-// update diagram
-// nice description in the PR
+//
 // nice crd output
-// visibility - commit status, health checks
 //

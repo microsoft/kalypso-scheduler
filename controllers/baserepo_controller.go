@@ -48,43 +48,57 @@ func (r *BaseRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Fetch the BaseRepo instance
 	baserepo := &schedulerv1alpha1.BaseRepo{}
+	deleted := false
 	err := r.Get(ctx, req.NamespacedName, baserepo)
 	if err != nil {
 		ignroredNotFound := client.IgnoreNotFound(err)
 		if ignroredNotFound != nil {
 			reqLogger.Error(err, "Failed to get Base Rep")
+			return ctrl.Result{}, ignroredNotFound
+		} else {
+			deleted = true
 		}
-		return ctrl.Result{}, ignroredNotFound
 	}
 
 	// Check if the resource is being deleted
 	if !baserepo.ObjectMeta.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		deleted = true
 	}
-
-	//TODO: delete flux resources if the baserepo is deleted
 
 	flux := NewFlux(ctx, r.Client)
-	name := fmt.Sprintf("%s-%s", baserepo.Namespace, baserepo.Name)
-	if err := flux.CreateFluxReferenceResources(name, DefaulFluxNamespace, baserepo.Namespace,
-		baserepo.Spec.Repo,
-		baserepo.Spec.Branch,
-		baserepo.Spec.Path,
-		baserepo.Spec.Commit); err != nil {
-		return r.manageFailure(ctx, reqLogger, baserepo, err, "Failed to create flux resources")
-	}
+	name := fmt.Sprintf("%s-%s", req.Namespace, req.Name)
 
-	condition := metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionTrue,
-		Reason: "FluxResourcesCreated",
-	}
-	meta.SetStatusCondition(&baserepo.Status.Conditions, condition)
+	if deleted {
+		err := flux.DeleteFluxReferenceResources(name, DefaulFluxNamespace)
+		if err != nil {
+			return r.manageFailure(ctx, reqLogger, baserepo, err, "Failed to delete flux resources")
+		}
+		reqLogger.Info(fmt.Sprintf("Flux resources %s in %s namespace deleted successfully", name, DefaulFluxNamespace))
+	} else {
 
-	updateErr := r.Status().Update(ctx, baserepo)
-	if updateErr != nil {
-		reqLogger.Info("Error when updating status.")
-		return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		if err := flux.CreateFluxReferenceResources(name, DefaulFluxNamespace, baserepo.Namespace,
+			baserepo.Spec.Repo,
+			baserepo.Spec.Branch,
+			baserepo.Spec.Path,
+			baserepo.Spec.Commit); err != nil {
+			return r.manageFailure(ctx, reqLogger, baserepo, err, "Failed to create flux resources")
+		}
+
+		reqLogger.Info(fmt.Sprintf("Flux resources %s in %s namespace created successfully", name, DefaulFluxNamespace))
+
+		condition := metav1.Condition{
+			Type:   "Ready",
+			Status: metav1.ConditionTrue,
+			Reason: "FluxResourcesCreated",
+		}
+		meta.SetStatusCondition(&baserepo.Status.Conditions, condition)
+
+		updateErr := r.Status().Update(ctx, baserepo)
+		if updateErr != nil {
+			reqLogger.Info("Error when updating status.")
+			return ctrl.Result{RequeueAfter: time.Second * 3}, updateErr
+		}
+
 	}
 
 	return ctrl.Result{}, nil
