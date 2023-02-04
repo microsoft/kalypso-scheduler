@@ -47,6 +47,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       
+      - name: Install Helmify
+        run: |
+           wget https://github.com/arttor/helmify/releases/download/v0.3.23/helmify_0.3.23_Linux_arm64.tar.gz
+           tar -xvf helmify_0.3.23_Linux_arm64.tar.gz
+           mv helmify /usr/local/bin
+
       - name: Build Helm Chart
         run: |
            export IMG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
