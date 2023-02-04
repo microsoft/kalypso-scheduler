@@ -49,9 +49,9 @@ jobs:
       
       - name: Install Helmify
         run: |
-           wget https://github.com/arttor/helmify/releases/download/v0.3.23/helmify_0.3.23_Linux_arm64.tar.gz
+           wget https://github.com/arttor/helmify/releases/download/v0.3.23/helmify_0.3.23_Linux_64-bit.tar.gz
            tar -xvf helmify_0.3.23_Linux_arm64.tar.gz
-           mv helmify/helmify /usr/local/bin
+           mv helmify /usr/local/bin
 
       - name: Build Helm Chart
         run: |
