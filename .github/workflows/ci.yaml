@@ -51,7 +51,7 @@ jobs:
         run: |
            wget https://github.com/arttor/helmify/releases/download/v0.3.23/helmify_0.3.23_Linux_arm64.tar.gz
            tar -xvf helmify_0.3.23_Linux_arm64.tar.gz
-           mv helmify /usr/local/bin
+           mv helmify/helmify /usr/local/bin
 
       - name: Build Helm Chart
         run: |
