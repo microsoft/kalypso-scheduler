@@ -389,6 +389,6 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
 // 	Name: "cluster-config-dev-auth",
 // }
-//
+// debug info and events
 // nice crd output
 //
