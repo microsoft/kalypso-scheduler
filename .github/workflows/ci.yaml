@@ -55,7 +55,7 @@ jobs:
 
       - name: Build Helm Chart
         run: |
-           export IMG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
+           export IMG=ghcr.io/microsoft/kalypso-scheduler:${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
            make helm-build
 
       - name: Publish Helm chart

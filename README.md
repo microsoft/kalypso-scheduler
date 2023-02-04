@@ -1,4 +1,6 @@
 # Kalypso Scheduler
+[![CI](https://github.com/microsoft/kalypso-scheduler/actions/workflows/ci.yaml/badge.svg)](https://github.com/microsoft/kalypso-scheduler/actions/workflows/ci.yaml)
+
 
 ![Schedduler](./docs/images/Schedduler.drawio.png)
 
