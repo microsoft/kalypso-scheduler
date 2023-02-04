@@ -62,7 +62,7 @@ jobs:
         uses: stefanprodan/helm-gh-pages@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          charts_dir: ./helm/kalypso-scheduler
+          charts_dir: ./helm
           charts_url: .
           branch: gh-pages           
 
