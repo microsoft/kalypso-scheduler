@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    deploymentTarget: hello-world-app-functional-test
-    environment: dev
-    workload: hello-world-app
-    workspace: kaizen-app-team
-  name: dev-kaizen-app-team-hello-world-app-functional-test
