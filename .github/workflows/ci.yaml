@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  Build_Push_Coontroller_Image:
+  Build_Push_Scheduler_Image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,7 +21,7 @@ jobs:
 
       - name: Generate Image Tag
         run: |
-           IMAGE_TAG=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.HF_VERSION }}-${{ github.run_number }}
+           IMAGE_TAG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
            echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV          
            echo $IMAGE_TAG > $GITHUB_WORKSPACE/IMAGE_TAG
 
@@ -42,14 +42,14 @@ jobs:
 
   Publish_Helm_Chart:  
     runs-on: ubuntu-latest
-    needs: [Build_Push_Coontroller_Image]
+    needs: [Build_Push_Scheduler_Image]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       
       - name: Build Helm Chart
         run: |
-           export IMG=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.HF_VERSION }}-${{ github.run_number }}
+           export IMG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
            make helm-build
 
       - name: Publish Helm chart
