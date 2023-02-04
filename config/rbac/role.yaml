@@ -34,6 +34,14 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
+  - clustertypes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
   - gitopsrepoes
   verbs:
   - create
