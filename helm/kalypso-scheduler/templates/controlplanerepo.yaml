@@ -16,7 +16,11 @@ metadata:
   name: gh-repo-secret
 type: Opaque
 data:
+  {{ if .Values.ghRepo }}
   token: {{ .Values.ghRepo.token | default "token" | b64enc | quote}}
+  {{ else }}
+  token: {{ "token" | b64enc | quote}}
+  {{ end }}  
 ---  
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: GitRepository
