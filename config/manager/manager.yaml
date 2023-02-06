@@ -72,6 +72,12 @@ spec:
         - --leader-elect
         image: controller:latest
         name: manager
+        env:
+        - name: GITHUB_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: gh-repo-secret
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

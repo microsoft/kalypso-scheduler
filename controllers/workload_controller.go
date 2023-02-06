@@ -43,6 +43,8 @@ type WorkloadReconciler struct {
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads/finalizers,verbs=update
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=deploymenttargets,verbs=get;list;watch;create;update;patch;delete
+
 func (r *WorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
 	reqLogger.Info("=== Reconciling Workload  ===")

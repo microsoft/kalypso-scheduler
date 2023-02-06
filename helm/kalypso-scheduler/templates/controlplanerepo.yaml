@@ -1,0 +1,53 @@
+{{ if .Values.ghRepo.token }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gh-repo-secret
+  namespace: flux-system
+type: Opaque
+data:
+  password: {{ .Values.ghRepo.token | b64enc | quote}}
+  username: {{ "kalypso" | b64enc | quote}}
+{{ end }}  
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gh-repo-secret
+type: Opaque
+data:
+  token: {{ .Values.ghRepo.token | default "token" | b64enc | quote}}
+---  
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: control-plane
+  namespace: flux-system
+spec:
+  interval: 10s
+  ignore: |
+    # exclude all
+    /*
+    # include .environments
+    !/.environments 
+  url: {{  required "Control Plane repo URL is required"  .Values.controlPlane.URL }}
+  ref:
+    branch: {{ required "Control Plane repo Branch is required" .Values.controlPlane.branch }}
+{{ if .Values.ghRepo.token }}
+  secretRef:
+    name: gh-repo-secret
+{{ end }}
+---      
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: control-plane
+  namespace: flux-system
+spec:
+  interval: 10s
+  targetNamespace: {{ .Release.Namespace }}
+  sourceRef:
+    kind: GitRepository
+    name: control-plane
+  path: .environments
+  prune: true
