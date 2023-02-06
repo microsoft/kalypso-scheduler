@@ -1,4 +1,4 @@
-{{ if .Values.ghRepo.token }}
+{{ if .Values.ghRepoToken }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -6,7 +6,7 @@ metadata:
   namespace: flux-system
 type: Opaque
 data:
-  password: {{ .Values.ghRepo.token | b64enc | quote}}
+  password: {{ .Values.ghRepoToken | b64enc | quote}}
   username: {{ "kalypso" | b64enc | quote}}
 {{ end }}  
 ---
@@ -16,8 +16,8 @@ metadata:
   name: gh-repo-secret
 type: Opaque
 data:
-  {{ if .Values.ghRepo }}
-  token: {{ .Values.ghRepo.token | default "token" | b64enc | quote}}
+  {{ if .Values.ghRepoToken }}
+  token: {{ .Values.ghRepoToken  | b64enc | quote}}
   {{ else }}
   token: {{ "token" | b64enc | quote}}
   {{ end }}  
@@ -34,10 +34,10 @@ spec:
     /*
     # include .environments
     !/.environments 
-  url: {{  required "Control Plane repo URL is required"  .Values.controlPlane.URL }}
+  url: {{  required "Control Plane repo URL (controlPlaneURL) is required"  .Values.controlPlaneURL }}
   ref:
-    branch: {{ required "Control Plane repo Branch is required" .Values.controlPlane.branch }}
-{{ if .Values.ghRepo.token }}
+    branch: {{ required "Control Plane repo Branch (controlPlaneBranch) is required" .Values.controlPlaneBranch }}
+{{ if .Values.ghRepoToken }}
   secretRef:
     name: gh-repo-secret
 {{ end }}
