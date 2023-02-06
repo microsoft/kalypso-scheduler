@@ -53,9 +53,14 @@ const (
 	platformConfigLabel = "platform-config"
 )
 
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignmentpackages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=templates,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=clustertypes,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=deploymenttargets,verbs=get;list;watch;
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;
 
 func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)

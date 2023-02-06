@@ -43,6 +43,10 @@ type EnvironmentReconciler struct {
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=environments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=environments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=environments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
+
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
 	reqLogger.Info("=== Reconciling Environemnt ===")

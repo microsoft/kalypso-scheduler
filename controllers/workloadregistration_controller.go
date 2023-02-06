@@ -42,6 +42,7 @@ type WorkloadRegistrationReconciler struct {
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloadregistrations/finalizers,verbs=update
+
 func (r *WorkloadRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
 	reqLogger.Info("=== Reconciling Workload Registration ===")

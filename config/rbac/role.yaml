@@ -6,6 +6,50 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kustomize.toolkit.fluxcd.io
+  resources:
+  - kustomizations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - assignmentpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - scheduler.kalypso.io
   resources:
   - assignments
@@ -34,11 +78,75 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
+  - baserepoes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - baserepoes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - baserepoes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
   - clustertypes
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - deploymenttargets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - environments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - scheduler.kalypso.io
   resources:
@@ -65,3 +173,101 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - schedulingpolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - templates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloadregistrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloadregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloadregistrations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
+  - workloads/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - gitrepositories
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

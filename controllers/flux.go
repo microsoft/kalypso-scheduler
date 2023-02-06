@@ -33,6 +33,7 @@ const (
 	FluxInterval        = 10 * time.Second
 	FluxOwnerLabel      = "kustomize.toolkit.fluxcd.io/name"
 	FluxNamespaceLabel  = "kustomize.toolkit.fluxcd.io/namespace"
+	RepoSecretName      = "gh-repo-secret"
 )
 
 type Flux interface {
@@ -78,7 +79,7 @@ func (f *flux) CreateFluxGitRepository(name, namespace, url, branch, commit stri
 
 	//TODO: remove hardcoding
 	gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
-		Name: "cluster-config-dev-auth",
+		Name: RepoSecretName,
 	}
 
 	gitRepo.Spec.Interval = metav1.Duration{Duration: FluxInterval}
