@@ -54,6 +54,10 @@ const prCreateTimeOut = 3 * time.Second
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=gitopsrepoes/finalizers,verbs=update
+//+kubebuilder:rbac:groups=scheduler.kalypso.io,resources=clustertypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=clustertypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments,verbs=get;list;watch;
 
 func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx)
@@ -385,10 +389,6 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // update diagram
 // visibility - commit status, health checks
-//TODO: remove hardcoding !!!!
-// gitRepo.Spec.SecretRef = &meta.LocalObjectReference{
-// 	Name: "cluster-config-dev-auth",
-// }
-//
+// debug info and events
 // nice crd output
 //
