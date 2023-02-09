@@ -387,7 +387,7 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// update diagram
+// update diagram -> add OCM placement
 // visibility - commit status, health checks
 // debug info and events
 // nice crd output
