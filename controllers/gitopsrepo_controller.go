@@ -381,13 +381,16 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &schedulerv1alpha1.Assignment{}},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.AssignmentPackage{}},
+			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
+		Watches(
 			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		WithEventFilter(r.normalPredicate()).
 		Complete(r)
 }
 
-// update diagram
+// update diagram -> add OCM placement
 // visibility - commit status, health checks
 // debug info and events
 // nice crd output
