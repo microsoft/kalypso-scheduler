@@ -81,7 +81,7 @@ func (r *WorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		found := false
 		for _, workloadDeploymentTarget := range workload.Spec.DeploymentTargets {
 			deploymentTargetName := r.buildDeploymentTargetName(workload, workloadDeploymentTarget.Name)
-			if deploymentTarget.Name == deploymentTargetName {
+			if deploymentTarget.Name == deploymentTargetName && deploymentTarget.Spec.Environment == workload.Namespace {
 				found = true
 				break
 			}
@@ -99,12 +99,17 @@ func (r *WorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// iterate over the workload.deploymenttargets and create the ones that are not in the existing deploymenttargets
 	// and update the ones that are
 	for _, workloadDeploymentTarget := range workload.Spec.DeploymentTargets {
+
+		if workloadDeploymentTarget.Environment != workload.Namespace {
+			continue
+		}
+
 		var deploymentTarget *schedulerv1alpha1.DeploymentTarget = nil
 		exists := false
 		deploymentTargetName := r.buildDeploymentTargetName(workload, workloadDeploymentTarget.Name)
 
 		for _, existingDeploymentTarget := range deploymentTargets.Items {
-			if existingDeploymentTarget.Name == deploymentTargetName {
+			if existingDeploymentTarget.Name == deploymentTargetName && existingDeploymentTarget.Namespace == workload.Namespace {
 				deploymentTarget = &existingDeploymentTarget
 				exists = true
 				break
