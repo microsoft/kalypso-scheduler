@@ -5,7 +5,7 @@
 
 ## Kalypso Control Plane Abstractions
 
-Kalypso Scheduler operates with high level abstractions that the Platform Team uses to describe clusters in their environments. These abstractions are objects on the control plane Kubernetes cluster, that the scheduler watches. It reconciles the control plane abstractions by performing necessary transformations and scheduling, generating low level manifests and uploading them to the GitOps repositories. The GitOps operators on the workload clusters fetch assigned workloads and configurations from those GitOps repositories.
+Kalypso Scheduler operates with high level abstractions that the Platform Team uses to describe clusters in their environments. These abstractions are objects on the control plane Kubernetes cluster. The scheduler watches and reconciles the control plane abstractions by performing necessary transformations and scheduling, generating low level manifests and uploading them to the GitOps repositories. The GitOps operators on the workload clusters fetch assigned workloads and configurations from those GitOps repositories.
 
 The control plane abstractions are human oriented yamls, that the Platform Team can easily manipulate and version control in a [Control Plane](https://github.com/microsoft/kalypso-control-plane) repository. It is common to deliver the abstractions to the control plane Kubernetes cluster with a GitOps operator, such as [Flux CD](https://fluxcd.io).
 
