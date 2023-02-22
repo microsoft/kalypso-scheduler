@@ -302,18 +302,37 @@ spec:
   path: .
 ```
 
-
-<!--
-ER Diagram
--->
-
 ## Transformation Flow
 
-<!--
-![Schedduler](./docs/images/Schedduler.drawio.png)
--->
+The primary goal of the Kalypso Scheduler is to transform high level control plane abstractions into the low level Kubernetes manifests that the reconcilers on the clusters can understand. The high level transformation flow is shown on the following diagram:
+
+![Scheduler](./docs/images/Scheduler.drawio.png)
+
+The common abstractions such as Workload Registrations, Templates and Environments are delivered to the control plane cluster by Flux from the control plane repository. The Environment Controller watches Environments and creates a namespace for each environment in the control plane cluster. It creates corresponding Flux resources to deliver environment specific abstractions such as Cluster Types, Scheduling Policies, Config Maps and GitOps Repos from the environment branches to the environment namespace in the control plane cluster. 
+
+The Workload Registration Controller creates Flux resources to fetch Workloads from the Application repositories specified in the Workload Registrations. The Workload Controller watches Workloads, delivered by Flux, and unfolds them into Deployment Targets. 
+
+The Scheduler watches Scheduling Policies, Cluster Types, Deployment Targets and assigns Deployment Targets to Cluster Types. It creates an Assignment object for each Deployment Target assignment. The Assignment Controller uses Reconciler and Namespace templates, referenced by the assigned cluster type, and generates reconciler and namespace manifests. It also scans Config Maps in the environment namespaces that are applicable to this cluster type basing on label matching. It generates a consolidated Config Map and adds it to the Assignment Package along with the reconciler and namespace manifests.
+
+The GitOps Repo Controller watches Assignment Packages and creates a PR with their content to the GitOps repository specified in this environment.   
 
 ## Installation
+
+### Prerequisites 
+Kalypso Scheduler requires Flux to be installed on the control plane cluster. 
+
+
+Add Kalypso Scheduler Helm repository:
+```sh
+helm repo add kalypso https://raw.githubusercontent.com/microsoft/kalypso-scheduler/gh-pages/
+```
+
+Create a namespace and install the Helm chart:
+```sh
+kubectl create ns kalypso 
+helm upgrade -i kalypso kalypso/kalypso-scheduler -n kalypso --set controlPlaneURL=<Control Plane GitHub Repo URL> \
+--set controlPlaneBranch=main --set ghRepoToken=<GitHub Repo Token>
+```
 
 ## Contributing
 
