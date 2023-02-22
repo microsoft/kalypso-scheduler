@@ -1,7 +1,7 @@
 # Kalypso Scheduler
 [![CI](https://github.com/microsoft/kalypso-scheduler/actions/workflows/ci.yaml/badge.svg)](https://github.com/microsoft/kalypso-scheduler/actions/workflows/ci.yaml)
 
-[Kalypso](https://github.com/microsoft/kalypso) scheduler operator, responsible for scheduling applications and services on cluster types and uploading the result to the GitOps repo.
+[Kalypso](https://github.com/microsoft/kalypso) scheduler operator is responsible for scheduling applications and services on cluster types and uploading the result to the GitOps repo.
 
 ## Kalypso Control Plane Abstractions
 
