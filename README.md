@@ -319,8 +319,10 @@ The GitOps Repo Controller watches Assignment Packages and creates a PR with the
 ## Installation
 
 ### Prerequisites 
+
 Kalypso Scheduler requires Flux to be installed on the control plane cluster. 
 
+### Install with Helm
 
 Add Kalypso Scheduler Helm repository:
 ```sh
