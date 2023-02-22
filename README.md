@@ -336,6 +336,8 @@ helm upgrade -i kalypso kalypso/kalypso-scheduler -n kalypso --set controlPlaneU
 --set controlPlaneBranch=main --set ghRepoToken=<GitHub Repo Token>
 ```
 
+Use [Kalypso Control Plane](https://github.com/microsoft/kalypso-control-plane) as a sample of the control plane repository. 
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
