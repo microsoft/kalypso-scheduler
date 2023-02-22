@@ -3,9 +3,317 @@
 
 [Kalypso](https://github.com/microsoft/kalypso) scheduler operator, responsible for scheduling applications and services on cluster types and uploading the result to the GitOps repo.
 
+## Kalypso Control Plane Abstractions
+
+Kalypso Scheduler operates with high level abstractions that the Platform Team uses to describe clusters in their environments. These abstractions are objects on the control plane Kubernetes cluster, that the scheduler watches. It reconciles the control plane abstractions by performing necessary transformations and scheduling, generating low level manifests and uploading them to the GitOps repositories. The GitOps operators on the workload clusters fetch assigned workloads and configurations from those GitOps repositories.
+
+The control plane abstractions are human oriented yamls, that the Platform Team can easily manipulate and version control in a [Control Plane](https://github.com/microsoft/kalypso-control-plane) repository. It is common to deliver the abstractions to the control plane Kubernetes cluster with a GitOps operator, such as [Flux CD](https://fluxcd.io).
+
+### Cluster Type
+
+Cluster type defines a set of K8s clusters with similar properties that host the same collection of workloads and share the same platform configuration values. A single cluster type may be backed up by thousands of physical clusters.  
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: ClusterType
+metadata:
+  name: large
+  labels: 
+    region: west-us
+    size: large
+spec:
+  reconciler: argocd
+  namespaceService: default
+```
+
+The example above defines `large` cluster type that uses `argocd` as a [reconciler](#reconciler-template). It provides a namespace for each assigned workload, generated from the `default` [namespace template](#namespace-template). 
+
+### Reconciler template
+
+Each cluster type may use their own reconciler, for example Flux, ArgoCD, Rancher Fleet, polling script etc. This abstraction contains [Go manifest template](https://pkg.go.dev/text/template#hdr-Text_and_spaces), which is used to generate reconciler deployment descriptors.  
+
+#### Example
+
+ArgoCD application
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Template
+metadata:
+  name: argocd
+spec:
+  type: reconciler
+  manifests:
+    - apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "{{ .DeploymentTargetName}}"
+        namespace: argocd
+      spec:
+          destination:
+              server: https://kubernetes.default.svc
+              namespace: "{{ .Namespace}}"
+          project: default
+          source:
+              path: "{{ .Path}}"
+              repoURL: "{{ .Repo}}"
+              targetRevision: "{{ .Branch}}"
+              directory:
+                  recurse: true
+                  include: '*.yaml'
+                  exclude: 'kustomization.yaml'
+          syncPolicy:
+              automated:
+                  prune: true
+                  selfHeal: true
+                  allowEmpty: false
+              syncOptions:
+              - CreateNamespace=true
+```
+
+Flux resources
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Template
+metadata:
+  name: arc-flux
+spec:
+  type: reconciler
+  manifests:
+    - apiVersion: source.toolkit.fluxcd.io/v1beta2
+      kind: GitRepository
+      metadata:
+        name: "{{ .DeploymentTargetName}}"
+        namespace: flux-system
+      spec:
+        interval: 1m0s
+        url: "{{ .Repo}}"
+        ref:
+          branch: "{{ .Branch}}"
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+      kind: Kustomization
+      metadata:
+        name: "{{ .DeploymentTargetName}}"
+        namespace: flux-system
+      spec:
+        interval: 1m0s
+        targetNamespace: "{{ .Namespace}}"
+        sourceRef:
+          kind: GitRepository
+          name: "{{ .DeploymentTargetName}}"
+        path: "{{ .Path}}" 
+        prune: true
+```
+
+The templates above are used to generate ArgoCD and Flux resources respectively. Reconcilers on the clusters use them to fetch manifests from the workload manifest storages, defined in the [deployment targets](#workload). 
+
+### Namespace template
+
+Each workload on every cluster has a dedicated namespace. This abstraction defines a manifest template for this namespace. 
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Template
+metadata:
+  name: default
+spec:
+  type: namespace
+  manifests:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ .Namespace}}" 
+        labels:
+          environment: "{{ .Environment}}"
+          workspace: "{{ .Workspace}}"
+          workload: "{{ .Workload}}"
+          deploymentTarget: "{{ .DeploymentTargetName}}"
+          someLabel: some-value
+```
+
+Besides just a namespace, the template may include some common resources that should be created for every workload, like RBAC configurations and such.
+
+<!-- TODO
+Describe available values to be used in the templates
+-->
+
+### Workload registration
+
+Workload registration is a reference to a git repository where the [workload](#workload) is defined. The scheduler creates Flux resources on the control plane cluster to fetch the [workload](#workload) definition.
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: WorkloadRegistration
+metadata:
+  name: hello-world-app
+  labels:
+    type: application
+spec:
+  workload:
+    repo: https://github.com/microsoft/kalypso-app-src
+    branch: main
+    path: workload/
+  workspace: kaizen-app-team
+```
+
+The example above defines a workload registration that points to a place in a git repository where a yaml file with the workload definition is stored. 
+
+### Workload
+
+Workload describes where an application or a service should be deployed from the perspective of an application team. It contains a list of deployment targets. Each deployment target defines a name, a reference to a rollout environment, a custom set of labels and a reference to a storage with the manifests, specific for this deployment target. 
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Workload
+metadata:
+  name: hello-world-app
+  labels:
+    type: application
+    family: force
+spec:
+  deploymentTargets:
+    - name: functional-test
+      labels:
+        purpose: functional-test
+        edge: "true"
+      environment: dev
+      manifests:
+        repo: https://github.com/microsoft/kalypso-app-gitops
+        branch: dev
+        path: ./functional-test
+    - name: performance-test
+      labels:
+        purpose: performance-test
+        edge: "false"
+      environment: dev
+      manifests:
+        repo: https://github.com/microsoft/kalypso-app-gitops
+        branch: dev
+        path: ./performance-test
+    - name: uat-test
+      labels:
+        purpose: uat-test
+      environment: stage
+      manifests:
+        repo: https://github.com/microsoft/kalypso-app-gitops
+        branch: stage
+        path: ./uat-test
+```
+
+The example above defines that `hello-world-app` application is supposed to be deployed to three targets. It should be deployed in `Dev` environment for functional and performance testing and in `Stage` environment for UAT testing. Each deployment target is marked with custom labels and points to the folders in [Application GitOps](https://github.com/microsoft/kalypso-app-gitops) repository where the Application Team generates application manifests for each target.
+
+### Scheduling policy
+
+The scheduler uses scheduling policies to map or schedule [deployment targets](#workload) to the [cluster types](#cluster-type). Currently, the algorithm is based on the simple label matching approach. Next version of the scheduler will provide integration with [OCM Placement API](https://open-cluster-management.io/concepts/placement/) for the more sophisticated and custom scheduling implementations.
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: SchedulingPolicy
+metadata:
+  name: functional-test-policy
+spec:
+  deploymentTargetSelector:
+    workspace: kaizen-app-team
+    labelSelector:
+      matchLabels:
+        purpose: functional-test
+        edge: "true"
+  clusterTypeSelector:
+    labelSelector:
+      matchLabels:
+        restricted: "true"
+        edge: "true"
+```
+
+The example above specifies that all deployment targets from the `kaizen-app-team` workspace, marked with labels `purpose: functional-test` and `edge: "true"` should be scheduled on all cluster types that are marked with label `restricted: "true"`.
+
+### Config
+
+Platform configuration values are defined with the standard Kubernetes config maps, marked with custom labels. The scheduler scans all config maps with the label `platform-config: "true"` in the namespace and collects values for each cluster type basing on the label matching. Every workload on each cluster will have a `platform-config` config map in its namespace with all platform configuration values, that the workload can use on this cluster type in this environment.
+
+#### Example
+
+```yaml
+kind: ConfigMap
+metadata:
+  name: west-us-config
+  labels:
+     platform-config: "true"
+     region: west-us
+data:
+  REGION: West US
+  DATABASE_URL: mysql://west-stage:8806/mysql
+```
+
+The example above defines a config map specifying some values for all cluster types with the label `region: west-us`.
+
+### Environment
+
+Environment defines a rollout environment such as `dev`, `stage`, `prod`. It defines a place in a git repository where the control plane abstractions for this environment are stored. The scheduler creates a namespace for each environment on the control plane cluster and creates Flux resources to fetch the abstractions from the defined place.
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Environment
+metadata:
+  labels:
+  name: dev
+spec:
+  controlPlane:
+    repo: https://github.com/microsoft/kalypso-control-plane
+    branch: dev
+    path: .
+```
+
+<!--
+### Base repository
+
+Control plane abstractions such as [workload registrations](#workload-registration), [templates](#reconciler-template) or some config maps are common for all environments and are stored in a common place like [main](https://github.com/microsoft/kalypso-control-plane) branch of a control plane repository. To fetch those common abstractions to the environment namespaces on the control plane cluster,     
+-->
+
+### GitOps repository 
+
+The result of the scheduling and transformation is about to be uploaded to one or many GitOps repositories. This is the output of the scheduler. The reconcilers on the clusters can fetch their manifests from the GitOps repositories, being abstracted away from the details of how those manifests where generated and how the scheduling has happened.  
+
+The scheduler uses the GitOps repository abstraction as a reference to where it should PR the generated manifests.   
+
+#### Example
+
+```yaml
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: GitOpsRepo
+metadata:
+  name: dev
+spec:
+  repo: https://github.com/microsoft/kalypso-gitops
+  branch: dev
+  path: .
+```
+
+
+<!--
+ER Diagram
+-->
+
+## Transformation Flow
+
 <!--
 ![Schedduler](./docs/images/Schedduler.drawio.png)
 -->
+
+## Installation
 
 ## Contributing
 
