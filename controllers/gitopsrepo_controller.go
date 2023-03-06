@@ -391,12 +391,14 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // TODO:
-// update diagram -> add OCM placement
-// visibility - commit status, health checks
-// support of any manifests type (raw, helm, any other) and manifets storage (repo, oci) for the deployment target
-//     OCI support can be achieved with Go lang templates {{if deploymentTarget.ocirepo (or if deploymentTarget.storageTYpe == OCI ) ....  then kind: OCIRepository ....}}. It can/should be added to the kalypso repos, but not in the tutorial!~~~
+// support of any manifests type (raw, helm, any other) and manifets storage (repo, oci, db) for the deployment target
+//     OCI support can be achieved with Go lang templates {{if deploymentTarget.ocirepo (or if deploymentTarget.storageTYpe == OCI ) ....
+//   	  then kind: OCIRepository ....}}. It can/should be added to the kalypso repos, but not in the tutorial!~~~
 //     Should the Deployment target spec be unstructered (to support any type/storage) or should there be like storage types (manifests, OCI, Helm) - ????
 //     To answer this question we need to invsetigate if we can use this unstructered data in a map. If we can, that would be the way to go
+// API docs
+// Platform flow
+// visibility - commit status, health checks
 // debug info and events
 // nice crd output
 // integrate with the OCM placement
