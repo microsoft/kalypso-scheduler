@@ -1,0 +1,32 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: Template
+metadata:
+  labels:
+    someLabel: "false"
+  name: test-template
+spec:
+  type: reconciler
+  manifests:
+   - | 
+     apiVersion: source.toolkit.fluxcd.io/v1beta2
+     kind: GitRepository
+     metadata:        
+        {{if eq .Manifests.type "kustomize"}} 
+        name: "{{ .DeploymentTargetName}}-kustomize"
+        {{else}}
+        name: "{{ .DeploymentTargetName}}"
+        {{end}}   
+   - |       
+     apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+     kind: Kustomization
+     metadata:
+       name: "{{ .DeploymentTargetName}}"
+       namespace: flux-system
+     spec:
+       interval: 30s
+       targetNamespace: "{{ .Namespace}}"
+       sourceRef:
+         kind: GitRepository
+         name: "{{ .DeploymentTargetName}}"
+       path: "{{ .Manifests.path}}"
+

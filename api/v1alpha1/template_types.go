@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // +kubebuilder:validation:Enum=reconciler;namespace
@@ -34,7 +33,7 @@ type TemplateSpec struct {
 	Type TemplateType `json:"type"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
-	Manifests []unstructured.Unstructured `json:"manifests"`
+	Manifests []string `json:"manifests"`
 }
 
 // TemplateStatus defines the observed state of Template

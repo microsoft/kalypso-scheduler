@@ -35,7 +35,7 @@ type DeploymentTargetSpec struct {
 	//+kubebuilder:validation:MinLength=0
 	Environment string `json:"environment"`
 
-	Manifests ManifestsSpec `json:"manifests"`
+	Manifests map[string]string `json:"manifests"`
 }
 
 type ManifestsSpec struct {
