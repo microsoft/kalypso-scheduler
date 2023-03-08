@@ -175,8 +175,8 @@ func (g *githubRepo) getTreeEntry(path, fileName, content string) *github.TreeEn
 	}
 }
 
-// convert the content of the map into yaml string
-func (g *githubRepo) getManifestsYaml(manifests []unstructured.Unstructured) (string, error) {
+// convert the content of the unstructured slice into yaml string
+func (g *githubRepo) getManifestsYamlUnstructured(manifests []unstructured.Unstructured) (string, error) {
 	var manifestsYaml string
 	for _, manifest := range manifests {
 		manifestYaml, err := yaml.Marshal(manifest.Object)
@@ -187,6 +187,18 @@ func (g *githubRepo) getManifestsYaml(manifests []unstructured.Unstructured) (st
 			manifestsYaml += "---\n"
 		}
 		manifestsYaml += string(manifestYaml)
+	}
+	return manifestsYaml, nil
+}
+
+// convert the content of the string slice into yaml string
+func (g *githubRepo) getManifestsYamlString(manifests []string) (string, error) {
+	var manifestsYaml string
+	for _, manifest := range manifests {
+		if manifestsYaml != "" {
+			manifestsYaml += "---\n"
+		}
+		manifestsYaml += manifest
 	}
 	return manifestsYaml, nil
 }
@@ -251,21 +263,21 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 			// iterate through the deployment targets
 			for kdt, dt := range ct.DeploymentTargets {
 				path := kct + "/" + kdt
-				reconcilerManifests, err := g.getManifestsYaml(dt.ReconcilerManifests)
+				reconcilerManifests, err := g.getManifestsYamlString(dt.ReconcilerManifests)
 				if err != nil {
 					return nil, false, err
 				}
 				manifestsEntry := g.getTreeEntry(path, "reconciler.yaml", reconcilerManifests)
 				entries = append(entries, manifestsEntry)
 
-				namespaceManifests, err := g.getManifestsYaml(dt.NamespaceManifests)
+				namespaceManifests, err := g.getManifestsYamlString(dt.NamespaceManifests)
 				if err != nil {
 					return nil, false, err
 				}
 				namespaceEntry := g.getTreeEntry(path, "namespace.yaml", namespaceManifests)
 				entries = append(entries, namespaceEntry)
 
-				configManifests, err := g.getManifestsYaml(dt.ConfigManifests)
+				configManifests, err := g.getManifestsYamlUnstructured(dt.ConfigManifests)
 				if err != nil {
 					return nil, false, err
 				}

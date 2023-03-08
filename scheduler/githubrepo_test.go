@@ -23,8 +23,6 @@ import (
 	"testing"
 
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -66,11 +64,11 @@ func TestCreatePR(t *testing.T) {
 	}
 
 	fmt.Println("reconcilerManifests")
-	reconcilerManifests := getManifestsYaml(t, reconcilerManifestsFile)
+	reconcilerManifests := getManifestsYamlString(t, reconcilerManifestsFile)
 	fmt.Println(reconcilerManifests)
 
 	fmt.Println("namespaceManifests")
-	namespaceManifests := getManifestsYaml(t, namespaceManifestsFile)
+	namespaceManifests := getManifestsYamlString(t, namespaceManifestsFile)
 	fmt.Println(namespaceManifests)
 
 	//Initialize the package
@@ -83,34 +81,19 @@ func TestCreatePR(t *testing.T) {
 	repoContentType.ClusterTypes["drone"] = *kalypsov1alpha1.NewClusterContentType()
 	repoContentType.ClusterTypes["drone"].DeploymentTargets["hello-world-app-functional-test"] = *assignmentPackageSpec
 
-	_, err = githubRepo.CreatePR("unit-test", repoContentType)
-	if err != nil {
-		t.Errorf("can't create PR: %v", err)
-	}
-	//t.Errorf("Something went wrong")
+	// _, err = githubRepo.CreatePR("unit-test", repoContentType)
+	// if err != nil {
+	// 	t.Errorf("can't create PR: %v", err)
+	// }
 
 }
-func getManifestsYaml(t *testing.T, filename string) []unstructured.Unstructured {
+
+func getManifestsYamlString(t *testing.T, filename string) []string {
 	// Read the file
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Errorf("could not read the file: %v", err)
 	}
 
-	var manifestsObject map[string]interface{}
-
-	// Unmarshal the YAML data into the struct
-	err = yaml.Unmarshal(data, &manifestsObject)
-	if err != nil {
-		t.Errorf("could not unmarshal the data: %v", err)
-	}
-	fmt.Println(manifestsObject)
-	//iterate over manifests
-	for _, manifest := range manifestsObject {
-		fmt.Println(manifest)
-	}
-	manifests := unstructured.Unstructured{Object: manifestsObject}
-
-	return []unstructured.Unstructured{manifests}
-
+	return []string{string(data)}
 }

@@ -22,13 +22,11 @@ import (
 	"html/template"
 
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Templater interface {
-	ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]unstructured.Unstructured, error)
+	ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]string, error)
 }
 
 // implements Templater interface
@@ -57,8 +55,8 @@ func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget) (Templater
 }
 
 // implement ProcessTemplate function
-func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]unstructured.Unstructured, error) {
-	var processedTemplates []unstructured.Unstructured
+func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]string, error) {
+	var processedTemplates []string
 	logger := log.FromContext(ctx)
 	logger.Info("Hi there")
 
@@ -71,14 +69,7 @@ func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alph
 		}
 
 		if processedObject != nil && *processedObject != "" {
-			// convert processedObject to unstructured.Unstructured
-			var unstructuredObject map[string]interface{}
-			err = yaml.Unmarshal([]byte(*processedObject), &unstructuredObject)
-			if err != nil {
-				logger.Error(err, "error unmarshalling processed object")
-				return nil, err
-			}
-			processedTemplates = append(processedTemplates, unstructured.Unstructured{Object: unstructuredObject})
+			processedTemplates = append(processedTemplates, *processedObject)
 		}
 	}
 
@@ -88,7 +79,7 @@ func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alph
 
 // recursively replace template variables in a map with appropriate values
 func (h *templater) replaceTemplateVariables(s string) (*string, error) {
-	//processs the string woth text/template
+	//processs the string with text/template
 	t, err := template.New("template").Parse(s)
 	if err != nil {
 		return nil, err

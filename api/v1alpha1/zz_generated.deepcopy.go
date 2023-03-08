@@ -150,17 +150,13 @@ func (in *AssignmentPackageSpec) DeepCopyInto(out *AssignmentPackageSpec) {
 	*out = *in
 	if in.ReconcilerManifests != nil {
 		in, out := &in.ReconcilerManifests, &out.ReconcilerManifests
-		*out = make([]unstructured.Unstructured, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.NamespaceManifests != nil {
 		in, out := &in.NamespaceManifests, &out.NamespaceManifests
-		*out = make([]unstructured.Unstructured, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.ConfigManifests != nil {
 		in, out := &in.ConfigManifests, &out.ConfigManifests

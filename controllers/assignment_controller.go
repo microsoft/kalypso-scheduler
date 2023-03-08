@@ -226,7 +226,7 @@ func (h *AssignmentReconciler) manageFailure(ctx context.Context, logger logr.Lo
 }
 
 // get the reconciler manifests
-func (r *AssignmentReconciler) getReconcilerManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]unstructured.Unstructured, error) {
+func (r *AssignmentReconciler) getReconcilerManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]string, error) {
 
 	// fetch the cluster type reconciler template
 	template := &schedulerv1alpha1.Template{}
@@ -244,7 +244,7 @@ func (r *AssignmentReconciler) getReconcilerManifests(ctx context.Context, clust
 }
 
 // get the namespace manifests
-func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]unstructured.Unstructured, error) {
+func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]string, error) {
 	// fetch the cluster type namespace template
 	template := &schedulerv1alpha1.Template{}
 	err := r.Get(ctx, client.ObjectKey{Name: clusterType.Spec.NamespaceService, Namespace: clusterType.Namespace}, template)

@@ -23,6 +23,7 @@ import (
 
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -56,10 +57,20 @@ func TestProcessTemplate(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, processedTemplates)
 
-	assert.Equal(t, "GitRepository", processedTemplates[0].GetKind())
-	assert.Equal(t, "test-deployment-target-kustomize", processedTemplates[0].Object["metadata"].(map[interface{}]interface{})["name"])
+	var unstructuredProcessedTemplates []unstructured.Unstructured
 
-	assert.Equal(t, "Kustomization", processedTemplates[1].GetKind())
+	//convert processedTemplates into a slice of unstructured objects
+	for _, processedTemplate := range processedTemplates {
+		var unstructuredObject map[string]interface{}
+		err = yaml.Unmarshal([]byte(processedTemplate), &unstructuredObject)
+		assert.NoError(t, err)
+		unstructuredProcessedTemplates = append(unstructuredProcessedTemplates, unstructured.Unstructured{Object: unstructuredObject})
+	}
+
+	assert.Equal(t, "GitRepository", unstructuredProcessedTemplates[0].GetKind())
+	assert.Equal(t, "test-deployment-target-kustomize", unstructuredProcessedTemplates[0].Object["metadata"].(map[string]interface{})["name"])
+	assert.Equal(t, "Kustomization", unstructuredProcessedTemplates[1].GetKind())
+
 }
 
 func readDeploymentTargetFromFile(t *testing.T, filename string) *kalypsov1alpha1.DeploymentTarget {
