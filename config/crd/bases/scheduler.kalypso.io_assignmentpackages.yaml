@@ -42,12 +42,12 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
               namespaceManifests:
                 items:
-                  type: object
+                  type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
               reconcilerManifests:
                 items:
-                  type: object
+                  type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
             type: object

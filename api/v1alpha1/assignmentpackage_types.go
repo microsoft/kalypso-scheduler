@@ -29,10 +29,10 @@ const (
 // AssignmentPackageSpec defines the desired state of AssignmentPackage
 type AssignmentPackageSpec struct {
 	//+kubebuilder:pruning:PreserveUnknownFields
-	ReconcilerManifests []unstructured.Unstructured `json:"reconcilerManifests,omitempty"`
+	ReconcilerManifests []string `json:"reconcilerManifests,omitempty"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
-	NamespaceManifests []unstructured.Unstructured `json:"namespaceManifests,omitempty"`
+	NamespaceManifests []string `json:"namespaceManifests,omitempty"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
 	ConfigManifests []unstructured.Unstructured `json:"configManifests,omitempty"`

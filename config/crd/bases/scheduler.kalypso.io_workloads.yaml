@@ -46,20 +46,8 @@ spec:
                         type: string
                       type: object
                     manifests:
-                      properties:
-                        branch:
-                          minLength: 0
-                          type: string
-                        path:
-                          minLength: 0
-                          type: string
-                        repo:
-                          minLength: 0
-                          type: string
-                      required:
-                      - branch
-                      - path
-                      - repo
+                      additionalProperties:
+                        type: string
                       type: object
                     name:
                       type: string

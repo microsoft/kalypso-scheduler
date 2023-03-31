@@ -37,7 +37,7 @@ spec:
             properties:
               manifests:
                 items:
-                  type: object
+                  type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
               type:

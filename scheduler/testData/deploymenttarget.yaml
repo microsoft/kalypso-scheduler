@@ -1,0 +1,16 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: DeploymentTarget
+metadata:
+  labels:
+    workload: test-workload
+    workspace: test-workspace
+    test-label-key: test-label-value
+  name: test-deployment-target
+spec:
+  environment: test-environment
+  manifests:
+    storage: git
+    type: kustomize    
+    branch: dev
+    path: ./prometheus
+    repo: https://github.com/eedorenko/kalypso-oci-svc-gitops
