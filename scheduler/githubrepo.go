@@ -31,9 +31,13 @@ import (
 	"github.com/google/go-github/v49/github"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	reconcilerName = "reconciler"
+	namespaceName  = "namespace"
+	configName     = "platform-config"
 )
 
 type GithubRepo interface {
@@ -175,21 +179,21 @@ func (g *githubRepo) getTreeEntry(path, fileName, content string) *github.TreeEn
 	}
 }
 
-// convert the content of the unstructured slice into yaml string
-func (g *githubRepo) getManifestsYamlUnstructured(manifests []unstructured.Unstructured) (string, error) {
-	var manifestsYaml string
-	for _, manifest := range manifests {
-		manifestYaml, err := yaml.Marshal(manifest.Object)
-		if err != nil {
-			return "", err
-		}
-		if manifestsYaml != "" {
-			manifestsYaml += "---\n"
-		}
-		manifestsYaml += string(manifestYaml)
-	}
-	return manifestsYaml, nil
-}
+// // convert the content of the unstructured slice into yaml string
+// func (g *githubRepo) getManifestsYamlUnstructured(manifests []unstructured.Unstructured) (string, error) {
+// 	var manifestsYaml string
+// 	for _, manifest := range manifests {
+// 		manifestYaml, err := yaml.Marshal(manifest.Object)
+// 		if err != nil {
+// 			return "", err
+// 		}
+// 		if manifestsYaml != "" {
+// 			manifestsYaml += "---\n"
+// 		}
+// 		manifestsYaml += string(manifestYaml)
+// 	}
+// 	return manifestsYaml, nil
+// }
 
 // convert the content of the string slice into yaml string
 func (g *githubRepo) getManifestsYamlString(manifests []string) (string, error) {
@@ -263,26 +267,30 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 			// iterate through the deployment targets
 			for kdt, dt := range ct.DeploymentTargets {
 				path := kct + "/" + kdt
+				var filename string
 				reconcilerManifests, err := g.getManifestsYamlString(dt.ReconcilerManifests)
 				if err != nil {
 					return nil, false, err
 				}
-				manifestsEntry := g.getTreeEntry(path, "reconciler.yaml", reconcilerManifests)
+				filename = g.getFullManifestsFileName(reconcilerName, dt.ReconcilerManifestsContentType)
+				manifestsEntry := g.getTreeEntry(path, filename, reconcilerManifests)
 				entries = append(entries, manifestsEntry)
 
 				namespaceManifests, err := g.getManifestsYamlString(dt.NamespaceManifests)
 				if err != nil {
 					return nil, false, err
 				}
-				namespaceEntry := g.getTreeEntry(path, "namespace.yaml", namespaceManifests)
+				filename = g.getFullManifestsFileName(namespaceName, dt.NamespaceManifestsContentType)
+				namespaceEntry := g.getTreeEntry(path, filename, namespaceManifests)
 				entries = append(entries, namespaceEntry)
 
-				configManifests, err := g.getManifestsYamlUnstructured(dt.ConfigManifests)
+				configManifests, err := g.getManifestsYamlString(dt.ConfigManifests)
 				if err != nil {
 					return nil, false, err
 				}
 				if configManifests != "" {
-					configEntry := g.getTreeEntry(path, "config.yaml", configManifests)
+					filename = g.getFullManifestsFileName(configName, dt.ConfigManifestsContentType)
+					configEntry := g.getTreeEntry(path, filename, configManifests)
 					entries = append(entries, configEntry)
 				}
 
@@ -294,6 +302,14 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 
 	tree, _, err = g.client.Git.CreateTree(g.ctx, g.sourceOwner, g.sourceRepo, *ref.Object.SHA, entries)
 	return tree, isPromoted, err
+}
+
+func (g *githubRepo) getFullManifestsFileName(fileName string, contentType string) string {
+	if contentType == "" {
+		contentType = "yaml"
+	}
+
+	return fileName + "." + contentType
 }
 
 func (g *githubRepo) addPromotedCommitId(existingEntries []*github.TreeEntry, content *schedulerv1alpha1.RepoContentType) (commitEntry *github.TreeEntry, isPromoted bool, err error) {

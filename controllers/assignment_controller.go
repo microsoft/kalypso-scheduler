@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +137,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
 	//get configManifests
-	configManifests, err := r.getConfigManifests(ctx, clusterType, deploymentTarget)
+	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, deploymentTarget)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
 	}
@@ -165,6 +167,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	assignmentPackage.Spec.ReconcilerManifests = reconcilerManifests
 	assignmentPackage.Spec.NamespaceManifests = namespaceManifests
 	assignmentPackage.Spec.ConfigManifests = configManifests
+	assignmentPackage.Spec.ConfigManifestsContentType = *configContentType
 
 	assignmentPackage.SetLabels(map[string]string{
 		schedulerv1alpha1.ClusterTypeLabel:      assignment.Spec.ClusterType,
@@ -261,12 +264,12 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 }
 
 // get the config manifests
-func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) ([]unstructured.Unstructured, error) {
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) ([]string, *string, error) {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMaps := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{platformConfigLabel: "true"})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	//iterate ovrer the config maps and select those that satisfy the cluster type labels
@@ -280,19 +283,46 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		}
 	}
 
-	var manifests []unstructured.Unstructured
-	manifest := unstructured.Unstructured{}
-	manifest.SetGroupVersionKind(schema.GroupVersionKind{
+	var manifests []string
+	var contentType string
+	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
+		platformConfigMap := r.getPlatformConfigMap(platformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		manifest, err := yaml.Marshal(platformConfigMap.Object)
+		if err != nil {
+			return nil, nil, err
+		}
+		manifests = append(manifests, string(manifest))
+		contentType = schedulerv1alpha1.YamlContentType
+	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
+		platformConfigEnv := r.getPlatformConfigEnv(platformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		manifests = append(manifests, platformConfigEnv)
+		contentType = schedulerv1alpha1.EnvContentType
+	}
+
+	return manifests, &contentType, nil
+}
+
+func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace string, clusterConfigData map[string]string) unstructured.Unstructured {
+	configMap := unstructured.Unstructured{}
+	configMap.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
 		Kind:    "ConfigMap",
 	})
-	manifest.SetName(platformConfigLabel)
-	manifest.SetNamespace(deploymentTarget.GetTargetNamespace())
-	manifest.Object["data"] = clusterConfigData
-	manifests = append(manifests, manifest)
+	configMap.SetName(name)
+	configMap.SetNamespace(namespace)
+	configMap.Object["data"] = clusterConfigData
 
-	return manifests, nil
+	return configMap
+
+}
+
+func (r *AssignmentReconciler) getPlatformConfigEnv(name string, namespace string, clusterConfigData map[string]string) string {
+	var configEnv string
+	for key, value := range clusterConfigData {
+		configEnv += fmt.Sprintf("export %s=%s\n", key, value)
+	}
+	return configEnv
 }
 
 func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType) bool {
