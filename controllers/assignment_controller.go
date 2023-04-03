@@ -320,7 +320,7 @@ func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace strin
 func (r *AssignmentReconciler) getPlatformConfigEnv(name string, namespace string, clusterConfigData map[string]string) string {
 	var configEnv string
 	for key, value := range clusterConfigData {
-		configEnv += fmt.Sprintf("export %s=%s\n", key, value)
+		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, value)
 	}
 	return configEnv
 }
