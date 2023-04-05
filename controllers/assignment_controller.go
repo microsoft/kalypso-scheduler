@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -319,8 +320,15 @@ func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace strin
 
 func (r *AssignmentReconciler) getPlatformConfigEnv(name string, namespace string, clusterConfigData map[string]string) string {
 	var configEnv string
-	for key, value := range clusterConfigData {
-		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, value)
+	keys := make([]string, 0, len(clusterConfigData))
+	for key := range clusterConfigData {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, clusterConfigData[key])
 	}
 	return configEnv
 }
