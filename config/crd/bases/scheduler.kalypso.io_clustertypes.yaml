@@ -35,6 +35,11 @@ spec:
           spec:
             description: ClusterTypeSpec defines the desired state of ClusterType
             properties:
+              configType:
+                enum:
+                - configMap
+                - envFile
+                type: string
               namespaceService:
                 minLength: 0
                 type: string
