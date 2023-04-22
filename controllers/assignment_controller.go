@@ -443,7 +443,6 @@ func (r *AssignmentReconciler) findAssignmentsForDeploymentTarget(object client.
 	var requests []reconcile.Request
 	assignments := &schedulerv1alpha1.AssignmentList{}
 	err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{DeploymentTargetField: deploymentTarget.Name})
-	// err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()))
 	if err != nil {
 		return []reconcile.Request{}
 	}
