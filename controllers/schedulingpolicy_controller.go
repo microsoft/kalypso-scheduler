@@ -48,6 +48,7 @@ const (
 	ClusterTypeField      = "spec.clusterType"
 	ReconcilerField       = "spec.reconciler"
 	NamespaceServiceField = "spec.namespaceService"
+	DeploymentTargetField = "spec.deploymentTarget"
 )
 
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -256,6 +257,13 @@ func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add the field index for the cluster type in the assignment
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.Assignment{}, ClusterTypeField, func(rawObj client.Object) []string {
 		return []string{rawObj.(*schedulerv1alpha1.Assignment).Spec.ClusterType}
+	}); err != nil {
+		return err
+	}
+
+	// Add the field index for the deployment target in the assignment
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.Assignment{}, DeploymentTargetField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.Assignment).Spec.DeploymentTarget}
 	}); err != nil {
 		return err
 	}
