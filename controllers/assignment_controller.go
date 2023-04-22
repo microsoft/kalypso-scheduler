@@ -53,7 +53,7 @@ type AssignmentReconciler struct {
 }
 
 const (
-	platformConfigLabel = "platform-config"
+	PlatformConfigLabel = "platform-config"
 )
 
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=assignments,verbs=get;list;watch;create;update;patch;delete
@@ -268,7 +268,7 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) ([]string, *string, error) {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMaps := &corev1.ConfigMapList{}
-	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{platformConfigLabel: "true"})
+	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -287,7 +287,7 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	var manifests []string
 	var contentType string
 	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
-		platformConfigMap := r.getPlatformConfigMap(platformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
 		manifest, err := yaml.Marshal(platformConfigMap.Object)
 		if err != nil {
 			return nil, nil, err
@@ -295,7 +295,7 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		manifests = append(manifests, string(manifest))
 		contentType = schedulerv1alpha1.YamlContentType
 	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
-		platformConfigEnv := r.getPlatformConfigEnv(platformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
 		manifests = append(manifests, platformConfigEnv)
 		contentType = schedulerv1alpha1.EnvContentType
 	}
@@ -337,7 +337,7 @@ func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, 
 	matches := true
 	for key, value := range config.Labels {
 		//TODO: have own labels namespace
-		if key != FluxOwnerLabel && key != FluxNamespaceLabel && key != platformConfigLabel {
+		if key != FluxOwnerLabel && key != FluxNamespaceLabel && key != PlatformConfigLabel {
 			if key == schedulerv1alpha1.ClusterTypeLabel {
 				if value != clusterType.Name {
 					matches = false
@@ -429,6 +429,38 @@ func (r *AssignmentReconciler) findAssignmentsForConfigMap(object client.Object)
 	return requests
 }
 
+func (r *AssignmentReconciler) findAssignmentsForDeploymentTarget(object client.Object) []reconcile.Request {
+	//get deployment target
+	deploymentTarget := &schedulerv1alpha1.DeploymentTarget{}
+	err := r.Get(context.TODO(), client.ObjectKey{
+		Name:      object.GetName(),
+		Namespace: object.GetNamespace(),
+	}, deploymentTarget)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	var requests []reconcile.Request
+	assignments := &schedulerv1alpha1.AssignmentList{}
+	err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{DeploymentTargetField: deploymentTarget.Name})
+	// err = r.List(context.TODO(), assignments, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	for _, item := range assignments.Items {
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		}
+		requests = append(requests, request)
+	}
+
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *AssignmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
@@ -441,5 +473,8 @@ func (r *AssignmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForConfigMap)).
+		Watches(
+			&source.Kind{Type: &schedulerv1alpha1.DeploymentTarget{}},
+			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForDeploymentTarget)).
 		Complete(r)
 }
