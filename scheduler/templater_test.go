@@ -30,6 +30,7 @@ import (
 // Unit tests for the Templater interface.
 const (
 	gitopsDeploymentTargetFile = "testdata/deploymenttarget.yaml"
+	gitopsClusterTypeFile      = "testdata/clustertype.yaml"
 )
 
 func TestNewTemplater(t *testing.T) {
@@ -84,10 +85,22 @@ func readDeploymentTargetFromFile(t *testing.T, filename string) *kalypsov1alpha
 	return deploymentTarget
 }
 
+func readClusterTypeFromFile(t *testing.T, filename string) *kalypsov1alpha1.ClusterType {
+	// read cluster type from a file
+	clusterType := &kalypsov1alpha1.ClusterType{}
+	clusterTypeFile, err := os.Open(filename)
+	assert.NoError(t, err)
+	decoder := yaml.NewYAMLOrJSONDecoder(clusterTypeFile, 4096)
+	err = decoder.Decode(clusterType)
+	assert.NoError(t, err)
+	return clusterType
+}
+
 func getNewTemplater(t *testing.T) *templater {
 	deploymentTarget := readDeploymentTargetFromFile(t, gitopsDeploymentTargetFile)
+	clusterType := readClusterTypeFromFile(t, gitopsClusterTypeFile)
 
-	templ, err := NewTemplater(deploymentTarget)
+	templ, err := NewTemplater(deploymentTarget, clusterType)
 	if assert.NoError(t, err) {
 		assert.NotEmpty(t, templ)
 	}

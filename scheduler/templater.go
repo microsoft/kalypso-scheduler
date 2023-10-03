@@ -45,12 +45,13 @@ type dataType struct {
 	Workload             string
 	Labels               map[string]string
 	Manifests            map[string]string
+	ClusterType          string
 }
 
 // new templater function
-func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget) (Templater, error) {
+func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) (Templater, error) {
 	return &templater{
-		data: newData(deploymentTarget),
+		data: newData(deploymentTarget, clusterType),
 	}, nil
 }
 
@@ -94,13 +95,15 @@ func (h *templater) replaceTemplateVariables(s string) (*string, error) {
 }
 
 // create a new data struct
-func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget) dataType {
+func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) dataType {
 	environment := deploymentTarget.Spec.Environment
 	workspace := deploymentTarget.GetWorkspace()
 	workload := deploymentTarget.GetWorkload()
 	deploymentTargetName := deploymentTarget.Name
 	namespace := deploymentTarget.GetTargetNamespace()
 	manifests := deploymentTarget.Spec.Manifests
+	labels := deploymentTarget.GetLabels()
+	clusterTypeName := clusterType.Name
 
 	return dataType{
 		DeploymentTargetName: deploymentTargetName,
@@ -108,7 +111,8 @@ func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget) dataType {
 		Environment:          environment,
 		Workspace:            workspace,
 		Workload:             workload,
-		Labels:               deploymentTarget.GetLabels(),
+		Labels:               labels,
 		Manifests:            manifests,
+		ClusterType:          clusterTypeName,
 	}
 }

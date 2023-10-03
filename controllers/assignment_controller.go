@@ -111,7 +111,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get DeploymentTarget")
 	}
 
-	templater, err := scheduler.NewTemplater(deploymentTarget)
+	templater, err := scheduler.NewTemplater(deploymentTarget, clusterType)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get templater")
 	}
