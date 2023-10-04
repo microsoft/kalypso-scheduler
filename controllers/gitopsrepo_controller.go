@@ -284,16 +284,20 @@ func (r *GitOpsRepoReconciler) getRepoContent(ctx context.Context, logger logr.L
 
 	// list all BaseRepos in the namespace with name "main"
 	baserepos := &schedulerv1alpha1.BaseRepoList{}
-	err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace), client.MatchingFields{"name": "main"})
+	err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace))
 	if err != nil {
 		return nil, err
 	}
-	if len(baserepos.Items) > 1 {
-		return nil, errors.New("There should be only one 'main' BaseRepo in the namespace")
-	}
 
-	if len(baserepos.Items) == 1 {
-		repoContent.BaseRepo = baserepos.Items[0].Spec
+	mainBaseRepofound := false
+	for _, baserepo := range baserepos.Items {
+		if baserepo.Name == "main" {
+			if mainBaseRepofound {
+				return nil, errors.New("There should be only one BaseRepo in the namespace")
+			}
+			repoContent.BaseRepo = baserepo.Spec
+			mainBaseRepofound = true
+		}
 	}
 
 	return repoContent, nil
