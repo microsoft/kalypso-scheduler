@@ -282,14 +282,14 @@ func (r *GitOpsRepoReconciler) getRepoContent(ctx context.Context, logger logr.L
 		clusterTypeContent.DeploymentTargets[assignmentPackage.Labels[schedulerv1alpha1.DeploymentTargetLabel]] = assignmentPackage.Spec
 	}
 
-	// list all BaseRepos in the namespace
+	// list all BaseRepos in the namespace with name "main"
 	baserepos := &schedulerv1alpha1.BaseRepoList{}
-	err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace))
+	err = r.List(ctx, baserepos, client.InNamespace(gitopsrepo.Namespace), client.MatchingFields{"name": "main"})
 	if err != nil {
 		return nil, err
 	}
 	if len(baserepos.Items) > 1 {
-		return nil, errors.New("There should be only one BaseRepo in the namespace")
+		return nil, errors.New("There should be only one 'main' BaseRepo in the namespace")
 	}
 
 	if len(baserepos.Items) == 1 {
