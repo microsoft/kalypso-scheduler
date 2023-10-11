@@ -19,6 +19,7 @@ package scheduler
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"html/template"
 
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
@@ -27,6 +28,7 @@ import (
 
 type Templater interface {
 	ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]string, error)
+	GetTargetNamespace() string
 }
 
 // implements Templater interface
@@ -45,12 +47,13 @@ type dataType struct {
 	Workload             string
 	Labels               map[string]string
 	Manifests            map[string]string
+	ClusterType          string
 }
 
 // new templater function
-func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget) (Templater, error) {
+func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) (Templater, error) {
 	return &templater{
-		data: newData(deploymentTarget),
+		data: newData(deploymentTarget, clusterType),
 	}, nil
 }
 
@@ -93,14 +96,25 @@ func (h *templater) replaceTemplateVariables(s string) (*string, error) {
 	return &rs, nil
 }
 
+// get deployment target namespace
+func (h *templater) GetTargetNamespace() string {
+	return h.data.Namespace
+}
+
+func buildTargetNamespace(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) string {
+	return fmt.Sprintf("%s-%s-%s", deploymentTarget.Spec.Environment, clusterType.Name, deploymentTarget.Name)
+}
+
 // create a new data struct
-func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget) dataType {
+func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) dataType {
 	environment := deploymentTarget.Spec.Environment
 	workspace := deploymentTarget.GetWorkspace()
 	workload := deploymentTarget.GetWorkload()
 	deploymentTargetName := deploymentTarget.Name
-	namespace := deploymentTarget.GetTargetNamespace()
+	namespace := buildTargetNamespace(deploymentTarget, clusterType)
 	manifests := deploymentTarget.Spec.Manifests
+	labels := deploymentTarget.GetLabels()
+	clusterTypeName := clusterType.Name
 
 	return dataType{
 		DeploymentTargetName: deploymentTargetName,
@@ -108,7 +122,8 @@ func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget) dataType {
 		Environment:          environment,
 		Workspace:            workspace,
 		Workload:             workload,
-		Labels:               deploymentTarget.GetLabels(),
+		Labels:               labels,
 		Manifests:            manifests,
+		ClusterType:          clusterTypeName,
 	}
 }

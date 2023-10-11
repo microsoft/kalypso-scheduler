@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -84,11 +82,6 @@ func (dt *DeploymentTarget) GetWorkspace() string {
 // get deployment target workload
 func (dt *DeploymentTarget) GetWorkload() string {
 	return dt.Labels[WorkloadLabel]
-}
-
-// get deployment target namespace
-func (dt *DeploymentTarget) GetTargetNamespace() string {
-	return fmt.Sprintf("%s-%s-%s", dt.Spec.Environment, dt.GetWorkspace(), dt.GetName())
 }
 
 func init() {

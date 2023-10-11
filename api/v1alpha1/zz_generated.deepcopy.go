@@ -23,7 +23,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -160,10 +159,8 @@ func (in *AssignmentPackageSpec) DeepCopyInto(out *AssignmentPackageSpec) {
 	}
 	if in.ConfigManifests != nil {
 		in, out := &in.ConfigManifests, &out.ConfigManifests
-		*out = make([]unstructured.Unstructured, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 }
 

@@ -114,7 +114,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get DeploymentTarget")
 	}
 
-	templater, err := scheduler.NewTemplater(deploymentTarget)
+	templater, err := scheduler.NewTemplater(deploymentTarget, clusterType)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get templater")
 	}
@@ -138,7 +138,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
 	//get configManifests
-	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, deploymentTarget)
+	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, templater)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
 	}
@@ -265,7 +265,7 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 }
 
 // get the config manifests
-func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) ([]string, *string, error) {
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]string, *string, error) {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMaps := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
@@ -287,7 +287,7 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	var manifests []string
 	var contentType string
 	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
-		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, templater.GetTargetNamespace(), clusterConfigData)
 		manifest, err := yaml.Marshal(platformConfigMap.Object)
 		if err != nil {
 			return nil, nil, err
@@ -295,7 +295,7 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		manifests = append(manifests, string(manifest))
 		contentType = schedulerv1alpha1.YamlContentType
 	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
-		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, deploymentTarget.GetTargetNamespace(), clusterConfigData)
+		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, templater.GetTargetNamespace(), clusterConfigData)
 		manifests = append(manifests, platformConfigEnv)
 		contentType = schedulerv1alpha1.EnvContentType
 	}
@@ -310,6 +310,7 @@ func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace strin
 		Version: "v1",
 		Kind:    "ConfigMap",
 	})
+
 	configMap.SetName(name)
 	configMap.SetNamespace(namespace)
 	configMap.Object["data"] = clusterConfigData
