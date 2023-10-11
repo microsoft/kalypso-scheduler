@@ -18,24 +18,31 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
 	ClusterTypeLabel      = "cluster-type"
 	DeploymentTargetLabel = "deployment-target"
+	YamlContentType       = "yaml"
+	EnvContentType        = "sh"
 )
 
 // AssignmentPackageSpec defines the desired state of AssignmentPackage
 type AssignmentPackageSpec struct {
 	//+kubebuilder:pruning:PreserveUnknownFields
 	ReconcilerManifests []string `json:"reconcilerManifests,omitempty"`
+	//+optional
+	ReconcilerManifestsContentType string `json:"reconcilerManifestsContentType,omitempty"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
 	NamespaceManifests []string `json:"namespaceManifests,omitempty"`
+	//+optional
+	NamespaceManifestsContentType string `json:"namespaceManifestsContentType,omitempty"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
-	ConfigManifests []unstructured.Unstructured `json:"configManifests,omitempty"`
+	ConfigManifests []string `json:"configManifests,omitempty"`
+	//+optional
+	ConfigManifestsContentType string `json:"configManifestsContentType,omitempty"`
 }
 
 // AssignmentPackageStatus defines the observed state of AssignmentPackage

@@ -20,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// +kubebuilder:validation:Enum=configMap;envFile
+type ConfigType string
+
+const (
+	ConfigMapConfigType ConfigType = "configMap"
+	EnvFileConfigType   ConfigType = "envFile"
+)
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -30,6 +38,9 @@ type ClusterTypeSpec struct {
 
 	//+kubebuilder:validation:MinLength=0
 	NamespaceService string `json:"namespaceService"`
+
+	//+optional
+	ConfigType ConfigType `json:"configType,omitempty"`
 }
 
 // ClusterTypeStatus defines the observed state of ClusterType

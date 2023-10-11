@@ -37,19 +37,25 @@ spec:
             properties:
               configManifests:
                 items:
-                  type: object
+                  type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
+              configManifestsContentType:
+                type: string
               namespaceManifests:
                 items:
                   type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
+              namespaceManifestsContentType:
+                type: string
               reconcilerManifests:
                 items:
                   type: string
                 type: array
                 x-kubernetes-preserve-unknown-fields: true
+              reconcilerManifestsContentType:
+                type: string
             type: object
           status:
             description: AssignmentPackageStatus defines the observed state of AssignmentPackage
