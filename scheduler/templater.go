@@ -61,7 +61,6 @@ func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterTyp
 func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alpha1.Template) ([]string, error) {
 	var processedTemplates []string
 	logger := log.FromContext(ctx)
-	logger.Info("Hi there")
 
 	//itereate through the manifests
 	for _, manifest := range template.Spec.Manifests {
