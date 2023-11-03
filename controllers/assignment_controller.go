@@ -138,7 +138,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
 	//get configManifests
-	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, templater)
+	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, deploymentTarget, templater)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
 	}
@@ -265,7 +265,7 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 }
 
 // get the config manifests
-func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]string, *string, error) {
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget, templater scheduler.Templater) ([]string, *string, error) {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMaps := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
@@ -273,21 +273,12 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		return nil, nil, err
 	}
 
-	//iterate ovrer the config maps and select those that satisfy the cluster type labels
-	var clusterConfigData map[string]string = make(map[string]string)
-	for _, configMap := range configMaps.Items {
-		if r.isConfigForClusterType(&configMap, clusterType) {
-			//add config map data to the cluster config data
-			for key, value := range configMap.Data {
-				clusterConfigData[key] = value
-			}
-		}
-	}
+	configData := r.getConfigData(ctx, configMaps.Items, clusterType, deploymentTarget)
 
 	var manifests []string
 	var contentType string
 	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
-		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, templater.GetTargetNamespace(), clusterConfigData)
+		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
 		manifest, err := yaml.Marshal(platformConfigMap.Object)
 		if err != nil {
 			return nil, nil, err
@@ -295,12 +286,46 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		manifests = append(manifests, string(manifest))
 		contentType = schedulerv1alpha1.YamlContentType
 	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
-		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, templater.GetTargetNamespace(), clusterConfigData)
+		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
 		manifests = append(manifests, platformConfigEnv)
 		contentType = schedulerv1alpha1.EnvContentType
 	}
 
 	return manifests, &contentType, nil
+}
+
+func (r *AssignmentReconciler) getConfigData(ctx context.Context, configMaps []corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]string {
+	//sort config maps by name
+	sort.Slice(configMaps, func(i, j int) bool {
+		return configMaps[i].Name < configMaps[j].Name
+	})
+
+	//iterate ovrer the config maps and select those that satisfy the cluster type labels
+	var clusterConfigData map[string]string = make(map[string]string)
+	for _, configMap := range configMaps {
+		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
+			//add config map data to the cluster config data
+			for key, value := range configMap.Data {
+				clusterConfigData[key] = value
+			}
+		}
+	}
+
+	// sort the cluster config data by key
+	keys := make([]string, 0, len(clusterConfigData))
+	for key := range clusterConfigData {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	//iterate over the sorted keys and add the values to the cluster config data
+	var sortedClusterConfigData map[string]string = make(map[string]string)
+	for _, key := range keys {
+		sortedClusterConfigData[key] = clusterConfigData[key]
+	}
+
+	return sortedClusterConfigData
 }
 
 func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace string, clusterConfigData map[string]string) unstructured.Unstructured {
@@ -321,20 +346,14 @@ func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace strin
 
 func (r *AssignmentReconciler) getPlatformConfigEnv(name string, namespace string, clusterConfigData map[string]string) string {
 	var configEnv string
-	keys := make([]string, 0, len(clusterConfigData))
-	for key := range clusterConfigData {
-		keys = append(keys, key)
-	}
 
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, clusterConfigData[key])
+	for key, value := range clusterConfigData {
+		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, value)
 	}
 	return configEnv
 }
 
-func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType) bool {
+func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
 	matches := true
 	for key, value := range config.Labels {
 		//TODO: have own labels namespace
@@ -345,10 +364,22 @@ func (r *AssignmentReconciler) isConfigForClusterType(config *corev1.ConfigMap, 
 					break
 				}
 			} else {
-				clusterTypeLabeValue := clusterType.Labels[key]
-				if clusterTypeLabeValue != value {
-					matches = false
-					break
+				if key == schedulerv1alpha1.DeploymentTargetLabel {
+					if value != deploymentTarget.Name {
+						matches = false
+						break
+					}
+				} else {
+					clusterTypeLabeValue := clusterType.Labels[key]
+					if clusterTypeLabeValue != value {
+						deploymentTargetLabelValue := deploymentTarget.Labels[key]
+						if deploymentTargetLabelValue != value {
+							{
+								matches = false
+								break
+							}
+						}
+					}
 				}
 			}
 		}
