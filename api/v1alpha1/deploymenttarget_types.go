@@ -34,6 +34,9 @@ type DeploymentTargetSpec struct {
 	Environment string `json:"environment"`
 
 	Manifests map[string]string `json:"manifests"`
+
+	// +optional
+	ConfigSchemas []string `json:"configSchemas"`
 }
 
 type ManifestsSpec struct {

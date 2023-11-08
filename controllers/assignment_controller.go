@@ -347,15 +347,24 @@ func (r *AssignmentReconciler) validateConfigData(ctx context.Context, configDat
 		return err
 	}
 
+	for _, configSchema := range deploymentTarget.Spec.ConfigSchemas {
+		configSchemas = append(configSchemas, configSchema)
+	}
+
 	configValidator := scheduler.NewConfigValidator()
+	var errorMessages []string
 
 	for _, configSchema := range configSchemas {
 		err = configValidator.ValidateValues(ctx, configData, configSchema)
 		if err != nil {
 			// remove all occurancies of " (root):" from the error message, there may be many of them
 			errMessage := strings.Replace(err.Error(), " (root):", "", -1)
-			return fmt.Errorf("Config data validation failed: \n %s", errMessage)
+			errorMessages = append(errorMessages, errMessage)
 		}
+	}
+
+	if errorMessages != nil {
+		return fmt.Errorf("Config data validation failed: \n %s", strings.Join(errorMessages, "\n"))
 	}
 
 	return nil

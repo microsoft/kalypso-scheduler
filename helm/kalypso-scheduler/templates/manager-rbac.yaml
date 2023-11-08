@@ -112,6 +112,14 @@ rules:
 - apiGroups:
   - scheduler.kalypso.io
   resources:
+  - configschemas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduler.kalypso.io
+  resources:
   - deploymenttargets
   verbs:
   - create

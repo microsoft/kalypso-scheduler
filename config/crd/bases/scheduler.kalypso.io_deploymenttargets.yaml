@@ -35,6 +35,10 @@ spec:
           spec:
             description: DeploymentTargetSpec defines the desired state of DeploymentTarget
             properties:
+              configSchemas:
+                items:
+                  type: string
+                type: array
               environment:
                 minLength: 0
                 type: string

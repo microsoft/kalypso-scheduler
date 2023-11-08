@@ -35,9 +35,17 @@ spec:
           spec:
             description: WorkloadSpec defines the desired state of Workload
             properties:
+              configSchemas:
+                items:
+                  type: string
+                type: array
               deploymentTargets:
                 items:
                   properties:
+                    configSchemas:
+                      items:
+                        type: string
+                      type: array
                     environment:
                       minLength: 0
                       type: string
