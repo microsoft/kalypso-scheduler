@@ -63,6 +63,7 @@ const (
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=templates,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=clustertypes,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=deploymenttargets,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=configschemas,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;
 
 func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
