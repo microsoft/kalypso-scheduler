@@ -1,0 +1,12 @@
+apiVersion: scheduler.kalypso.io/v1alpha1
+kind: ConfigSchema
+metadata:
+  labels:
+    app.kubernetes.io/name: configschema
+    app.kubernetes.io/instance: configschema-sample
+    app.kubernetes.io/part-of: kalypso-scheduler
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kalypso-scheduler
+  name: configschema-sample
+spec:
+  # TODO(user): Add fields here

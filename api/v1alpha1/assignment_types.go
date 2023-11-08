@@ -43,6 +43,9 @@ type AssignmentSpec struct {
 // AssignmentStatus defines the observed state of Assignment
 type AssignmentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	//optional
+	GitIssueStatus GitIssueStatus `json:"gitIssueStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

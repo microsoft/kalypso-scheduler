@@ -97,3 +97,33 @@ func getManifestsYamlString(t *testing.T, filename string) []string {
 
 	return []string{string(data)}
 }
+
+// test update issue
+func TestUpdateIssue(t *testing.T) {
+	githubRepo, err := NewGithubRepo(ctx,
+		gitOpsRepo)
+	if err != nil {
+		t.Errorf("error creating github repo: %v", err)
+	}
+	if githubRepo == nil {
+		t.Errorf("github repo is nil")
+	}
+
+	message := "test update issue"
+
+	issueNo, err := githubRepo.UpdateIssue(nil, "unit-test", &message)
+	if err != nil {
+		t.Errorf("can't update issue: %v", err)
+	}
+
+	issueNo, err = githubRepo.UpdateIssue(issueNo, "unit-test2", &message)
+	if err != nil {
+		t.Errorf("can't update issue: %v", err)
+	}
+
+	_, err = githubRepo.UpdateIssue(issueNo, "unit-test2", nil)
+	if err != nil {
+		t.Errorf("can't update issue: %v", err)
+	}
+
+}

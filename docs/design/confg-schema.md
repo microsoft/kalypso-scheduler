@@ -12,6 +12,7 @@
   - They may declare for the further validation what config values, regardless of the workloads, 
       - should be provided for all environments - main branch
       - for a specific environment - env branch
+  - Schema is enforced by UI
   - Kalypso scheduler, while composing a platform config map for every assignment, validates config values against both platform and workload config schemas
     - In case of an error, it saves it to the assignment's status     
     - The errors are visible either as PR comments/checks or as repo issues or both
