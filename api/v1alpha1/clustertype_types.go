@@ -39,8 +39,8 @@ type ClusterTypeSpec struct {
 	//+kubebuilder:validation:MinLength=0
 	NamespaceService string `json:"namespaceService"`
 
-	//+optional
-	ConfigType ConfigType `json:"configType,omitempty"`
+	//+kubebuilder:validation:MinLength=0
+	ConfigType string `json:"configType"`
 }
 
 // ClusterTypeStatus defines the observed state of ClusterType
