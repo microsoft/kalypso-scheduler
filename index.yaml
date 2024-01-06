@@ -3,9 +3,9 @@ entries:
   kalypso-scheduler:
   - apiVersion: v2
     appVersion: 1.0.2-alpha
-    created: "2023-12-22T01:46:58.782633345Z"
+    created: "2024-01-06T01:08:49.138484633Z"
     description: A Helm chart for Kubernetes
-    digest: 4c45b6ca1ce49b8b00493b00758e8f914a0ed9e53b47eb6bd2b986552419402d
+    digest: 8942eedf8aa88839a396178f1d8b83786bf83e8deb8670ff28bbb00955267b29
     name: kalypso-scheduler
     type: application
     urls:
@@ -41,4 +41,4 @@ entries:
     urls:
     - kalypso-scheduler-0.1.0.tgz
     version: 0.1.0
-generated: "2023-12-22T01:46:58.782010559Z"
+generated: "2024-01-06T01:08:49.137848992Z"
