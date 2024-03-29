@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
+	"github.com/mitchellh/hashstructure"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -44,6 +46,7 @@ var _ Templater = (*templater)(nil)
 
 var funcMap = template.FuncMap{
 	"toYaml": toYAML,
+	"hash":   hash,
 }
 
 type dataType struct {
@@ -143,15 +146,12 @@ func toYAML(v interface{}) string {
 		return ""
 	}
 	return strings.TrimSuffix(string(data), "\n")
-	// var data bytes.Buffer
-	// encoder := goYaml.NewEncoder(&data)
-	// encoder.SetIndent(2)
-	// err := encoder.Encode(v)
+}
 
-	// if err != nil {
-	// 	// Swallow errors inside of a template.
-	// 	return ""
-	// }
-	// return strings.TrimSuffix(data.String(), "\n")
-
+func hash(v interface{}) string {
+	hashValue, err := hashstructure.Hash(v, nil)
+	if err != nil {
+		return ""
+	}
+	return strconv.FormatUint(hashValue, 10)
 }
