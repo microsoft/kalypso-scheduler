@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,6 +283,64 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	return manifests, &contentType, nil
 }
 
+func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObject interface{}) interface{} {
+	// if existingValue and newValue are arrays, merge them
+	if existingArray, ok := existingObject.([]interface{}); ok {
+		newArray, ok := newObject.([]interface{})
+		if ok {
+			// append the new array to the existing array
+			return append(existingArray, newArray...)
+
+		}
+	}
+
+	// if existingValue and newValue are maps, merge them
+	existingMap, ok := existingObject.(map[interface{}]interface{})
+	if ok {
+		newMap, ok := newObject.(map[interface{}]interface{})
+		if ok {
+			//iterate over the new map and merge the values
+			for key, value := range newMap {
+				// check if the key exists in the existing map
+				if existingValue, ok := existingMap[key]; ok {
+					// merge the values
+					existingMap[key] = r.mergeObjects(existingValue, value)
+				} else {
+					// add the new value to the merged object
+					existingMap[key] = value
+				}
+			}
+			return existingMap
+		}
+	}
+
+	return newObject
+
+}
+
+func (r *AssignmentReconciler) mergeConfigValue(existingValue string, newValue string) string {
+	// unmarchal the existing value from yaml into object
+	var existingObject interface{}
+	err := yaml.Unmarshal([]byte(existingValue), &existingObject)
+	if err != nil {
+		return newValue
+	}
+	// unmarchal the nevalue from yaml into object
+	var newObject interface{}
+	err = yaml.Unmarshal([]byte(newValue), &newObject)
+	if err != nil {
+		return newValue
+	}
+	// merge the two objects
+	var mergedObject interface{} = r.mergeObjects(existingObject, newObject)
+	// marshall the merged object into yaml
+	mergedValue, err := yaml.Marshal(mergedObject)
+	if err != nil {
+		return newValue
+	}
+	return string(mergedValue)
+}
+
 func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]string {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMapsList := &corev1.ConfigMapList{}
@@ -303,7 +362,15 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
 			//add config map data to the cluster config data
 			for key, value := range configMap.Data {
-				clusterConfigData[key] = value
+				// check if the mao already has the key
+				if _, ok := clusterConfigData[key]; !ok {
+					clusterConfigData[key] = value
+				} else {
+					// var unstructuredObject interface{}
+					// err = yaml.Unmarshal([]byte(processedTemplate), &unstructuredObject)
+					clusterConfigData[key] = r.mergeConfigValue(clusterConfigData[key], value)
+				}
+
 			}
 		}
 	}
