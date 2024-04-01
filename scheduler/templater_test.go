@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	configData = map[string]string{"FactoryName": "SuperPlant", "FactoryType": "Chemical"}
+	configData = map[string]interface{}{"FactoryName": "SuperPlant", "FactoryType": "Chemical"}
 )
 
 func TestNewTemplater(t *testing.T) {
@@ -64,7 +64,7 @@ func TestProcessTemplate(t *testing.T) {
 
 	var unstructuredProcessedTemplates []unstructured.Unstructured
 
-	//convert processedTemplates into a slice of unstructured objects
+	//convert processedTemplates into a map of unstructured objects
 	for _, processedTemplate := range processedTemplates {
 		var unstructuredObject map[string]interface{}
 		err = yaml.Unmarshal([]byte(processedTemplate), &unstructuredObject)

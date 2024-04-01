@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,7 +283,62 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	return manifests, &contentType, nil
 }
 
-func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]string {
+func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObject interface{}) interface{} {
+	// if existingValue and newValue are arrays, merge them
+	if existingArray, ok := existingObject.([]interface{}); ok {
+		newArray, ok := newObject.([]interface{})
+		if ok {
+			// append the new array to the existing array
+			return append(existingArray, newArray...)
+
+		}
+	}
+
+	// if existingValue and newValue are maps, merge them
+	existingMap, ok := existingObject.(map[interface{}]interface{})
+	if ok {
+		newMap, ok := newObject.(map[interface{}]interface{})
+		if ok {
+			//iterate over the new map and merge the values
+			for key, value := range newMap {
+				// check if the key exists in the existing map
+				if existingValue, ok := existingMap[key]; ok {
+					// merge the values
+					existingMap[key] = r.mergeObjects(existingValue, value)
+				} else {
+					// add the new value to the merged object
+					existingMap[key] = value
+				}
+			}
+			return existingMap
+		}
+	}
+
+	return newObject
+
+}
+
+func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) interface{} {
+	var object interface{}
+	err := yaml.Unmarshal([]byte(configValue), &object)
+	if err != nil {
+		return configValue
+	}
+
+	// if object is an array or a map, return object, otherwise return the configValue
+	if _, ok := object.([]interface{}); ok {
+		return object
+	}
+
+	if _, ok := object.(map[interface{}]interface{}); ok {
+		return object
+	}
+
+	return configValue
+
+}
+
+func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]interface{} {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMapsList := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMapsList, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
@@ -298,12 +354,19 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	})
 
 	//iterate ovrer the config maps and select those that satisfy the cluster type labels
-	var clusterConfigData map[string]string = make(map[string]string)
+	var clusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, configMap := range configMaps {
 		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
 			//add config map data to the cluster config data
 			for key, value := range configMap.Data {
-				clusterConfigData[key] = value
+				newObject := r.getObjectFromConfigValue(value)
+				// check if the map already has the key
+				if _, ok := clusterConfigData[key]; !ok {
+					clusterConfigData[key] = newObject
+				} else {
+					clusterConfigData[key] = r.mergeObjects(clusterConfigData[key], newObject)
+				}
+
 			}
 		}
 	}
@@ -317,7 +380,7 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	sort.Strings(keys)
 
 	//iterate over the sorted keys and add the values to the cluster config data
-	var sortedClusterConfigData map[string]string = make(map[string]string)
+	var sortedClusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, key := range keys {
 		sortedClusterConfigData[key] = clusterConfigData[key]
 	}
