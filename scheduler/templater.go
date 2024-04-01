@@ -58,11 +58,11 @@ type dataType struct {
 	Labels               map[string]string
 	Manifests            map[string]string
 	ClusterType          string
-	ConfigData           map[string]string
+	ConfigData           map[string]interface{}
 }
 
 // new templater function
-func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]string) (Templater, error) {
+func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]interface{}) (Templater, error) {
 	return &templater{
 		data: newData(deploymentTarget, clusterType, configData),
 	}, nil
@@ -117,7 +117,7 @@ func buildTargetNamespace(deploymentTarget *kalypsov1alpha1.DeploymentTarget, cl
 }
 
 // create a new data struct
-func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]string) dataType {
+func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]interface{}) dataType {
 	environment := deploymentTarget.Spec.Environment
 	workspace := deploymentTarget.GetWorkspace()
 	workload := deploymentTarget.GetWorkload()

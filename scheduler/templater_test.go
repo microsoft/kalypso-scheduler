@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	configData = map[string]string{"FactoryName": "SuperPlant", "FactoryType": "Chemical"}
+	configData = map[string]interface{}{"FactoryName": "SuperPlant", "FactoryType": "Chemical"}
 )
 
 func TestNewTemplater(t *testing.T) {

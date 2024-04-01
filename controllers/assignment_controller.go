@@ -318,30 +318,27 @@ func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObjec
 
 }
 
-func (r *AssignmentReconciler) mergeConfigValue(existingValue string, newValue string) string {
-	// unmarchal the existing value from yaml into object
-	var existingObject interface{}
-	err := yaml.Unmarshal([]byte(existingValue), &existingObject)
+func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) interface{} {
+	var object interface{}
+	err := yaml.Unmarshal([]byte(configValue), &object)
 	if err != nil {
-		return newValue
+		return configValue
 	}
-	// unmarchal the nevalue from yaml into object
-	var newObject interface{}
-	err = yaml.Unmarshal([]byte(newValue), &newObject)
-	if err != nil {
-		return newValue
+
+	// if object is an array or a map, return object, otherwise return the configValue
+	if _, ok := object.([]interface{}); ok {
+		return object
 	}
-	// merge the two objects
-	var mergedObject interface{} = r.mergeObjects(existingObject, newObject)
-	// marshall the merged object into yaml
-	mergedValue, err := yaml.Marshal(mergedObject)
-	if err != nil {
-		return newValue
+
+	if _, ok := object.(map[interface{}]interface{}); ok {
+		return object
 	}
-	return string(mergedValue)
+
+	return configValue
+
 }
 
-func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]string {
+func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]interface{} {
 	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
 	configMapsList := &corev1.ConfigMapList{}
 	err := r.List(ctx, configMapsList, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
@@ -357,18 +354,17 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	})
 
 	//iterate ovrer the config maps and select those that satisfy the cluster type labels
-	var clusterConfigData map[string]string = make(map[string]string)
+	var clusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, configMap := range configMaps {
 		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
 			//add config map data to the cluster config data
 			for key, value := range configMap.Data {
-				// check if the mao already has the key
+				newObject := r.getObjectFromConfigValue(value)
+				// check if the map already has the key
 				if _, ok := clusterConfigData[key]; !ok {
-					clusterConfigData[key] = value
+					clusterConfigData[key] = newObject
 				} else {
-					// var unstructuredObject interface{}
-					// err = yaml.Unmarshal([]byte(processedTemplate), &unstructuredObject)
-					clusterConfigData[key] = r.mergeConfigValue(clusterConfigData[key], value)
+					clusterConfigData[key] = r.mergeObjects(clusterConfigData[key], newObject)
 				}
 
 			}
@@ -384,7 +380,7 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	sort.Strings(keys)
 
 	//iterate over the sorted keys and add the values to the cluster config data
-	var sortedClusterConfigData map[string]string = make(map[string]string)
+	var sortedClusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, key := range keys {
 		sortedClusterConfigData[key] = clusterConfigData[key]
 	}
