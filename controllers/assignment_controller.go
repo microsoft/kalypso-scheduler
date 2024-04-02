@@ -115,6 +115,12 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	configData := r.getConfigData(ctx, clusterType, deploymentTarget)
 
+	err = r.validateConfigData(ctx, configData, clusterType, deploymentTarget)
+
+	if err != nil {
+		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to validate config data")
+	}
+
 	templater, err := scheduler.NewTemplater(deploymentTarget, clusterType, configData)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get templater")
@@ -317,13 +323,6 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	// 		manifests = append(manifests, platformConfigEnv)
 	// 		contentType = schedulerv1alpha1.EnvContentType
 	// =======
-	configData := r.getConfigData(ctx, configMaps.Items, clusterType, deploymentTarget)
-
-	err = r.validateConfigData(ctx, configData, clusterType, deploymentTarget)
-
-	if err != nil {
-		return nil, nil, err
-	}
 
 	contentType := template.Spec.ContentType
 	if contentType == "" {
@@ -356,7 +355,7 @@ func (r *AssignmentReconciler) getConfigSchemas(ctx context.Context, clusterType
 }
 
 // validateConfigData validates the config data
-func (r *AssignmentReconciler) validateConfigData(ctx context.Context, configData map[string]string, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) error {
+func (r *AssignmentReconciler) validateConfigData(ctx context.Context, configData map[string]interface{}, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) error {
 	configSchemas, err := r.getConfigSchemas(ctx, clusterType, deploymentTarget)
 	if err != nil {
 		return err
@@ -459,7 +458,7 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	//iterate ovrer the config maps and select those that satisfy the cluster type labels
 	var clusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, configMap := range configMaps {
-		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
+		if r.isConfigForClusterTypeAndTarget(configMap.Labels, clusterType, deploymentTarget) {
 			//add config map data to the cluster config data
 			for key, value := range configMap.Data {
 				newObject := r.getObjectFromConfigValue(value)
@@ -491,9 +490,9 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	return sortedClusterConfigData
 }
 
-func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
+func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(labels map[string]string, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
 	matches := true
-	for key, value := range config.Labels {
+	for key, value := range labels {
 		//TODO: have own labels namespace
 		if key != FluxOwnerLabel && key != FluxNamespaceLabel && key != PlatformConfigLabel {
 			if key == schedulerv1alpha1.ClusterTypeLabel {

@@ -17,14 +17,20 @@ limitations under the License.
 package scheduler
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 
-	chartutil "helm.sh/helm/v3/pkg/chartutil"
+	jsoniter "github.com/json-iterator/go"
+
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type ConfigValidator interface {
-	ValidateValues(ctx context.Context, values map[string]string, schema string) error
+	ValidateValues(ctx context.Context, values map[string]interface{}, schema string) error
 }
 
 // implements Validator interface
@@ -37,20 +43,58 @@ func NewConfigValidator() ConfigValidator {
 	return &validator{}
 }
 
-func (v *validator) ValidateValues(ctx context.Context, values map[string]string, schema string) error {
-	var chartutilValues chartutil.Values = make(map[string]interface{})
-	// convert map[string]string to chartutil.Values
+func (v *validator) ValidateValues(ctx context.Context, values map[string]interface{}, schema string) error {
+	var chartutilValues map[string]interface{} = make(map[string]interface{})
 	for k, v := range values {
-		if i, err := strconv.Atoi(v); err == nil {
-			chartutilValues[k] = i
-		} else if f, err := strconv.ParseFloat(v, 64); err == nil {
-			chartutilValues[k] = f
+		if s, ok := v.(string); ok {
+			if i, err := strconv.Atoi(s); err == nil {
+				chartutilValues[k] = i
+			} else if f, err := strconv.ParseFloat(s, 64); err == nil {
+				chartutilValues[k] = f
+			} else {
+				chartutilValues[k] = v
+			}
 		} else {
 			chartutilValues[k] = v
 		}
+
 	}
 
-	err := chartutil.ValidateAgainstSingleSchema(chartutilValues, []byte(schema))
+	err := v.validateAgainstSingleSchema(chartutilValues, []byte(schema))
 
 	return err
+}
+
+func (v *validator) validateAgainstSingleSchema(values map[string]interface{}, schemaJSON []byte) (reterr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			reterr = fmt.Errorf("unable to validate schema: %s", r)
+		}
+	}()
+
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	valuesJSON, err := json.Marshal(values)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(valuesJSON, []byte("null")) {
+		valuesJSON = []byte("{}")
+	}
+	schemaLoader := gojsonschema.NewBytesLoader(schemaJSON)
+	valuesLoader := gojsonschema.NewBytesLoader(valuesJSON)
+
+	result, err := gojsonschema.Validate(schemaLoader, valuesLoader)
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		var sb strings.Builder
+		for _, desc := range result.Errors() {
+			sb.WriteString(fmt.Sprintf("- %s\n", desc))
+		}
+		return errors.New(sb.String())
+	}
+
+	return nil
 }

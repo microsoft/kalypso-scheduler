@@ -42,7 +42,7 @@ var (
 			}
 
 `
-	values = map[string]string{
+	values = map[string]interface{}{
 		"stringRequired": "value1",
 		"intRequired":    "0",
 		"numberRequired": "3.14",
