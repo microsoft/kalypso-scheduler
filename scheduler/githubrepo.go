@@ -306,11 +306,14 @@ func (g *githubRepo) getTree(ref *github.Reference, content *schedulerv1alpha1.R
 }
 
 func (g *githubRepo) getFullManifestsFileName(fileName string, contentType string) string {
-	if contentType == "" {
-		contentType = "yaml"
+	var fileExtension string
+	if contentType == schedulerv1alpha1.EnvContentType {
+		fileExtension = "sh"
+	} else {
+		fileExtension = "yaml"
 	}
 
-	return fileName + "." + contentType
+	return fileName + "." + fileExtension
 }
 
 func (g *githubRepo) addPromotedCommitId(existingEntries []*github.TreeEntry, content *schedulerv1alpha1.RepoContentType) (commitEntry *github.TreeEntry, isPromoted bool, err error) {

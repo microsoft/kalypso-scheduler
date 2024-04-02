@@ -27,9 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -115,7 +113,9 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get DeploymentTarget")
 	}
 
-	templater, err := scheduler.NewTemplater(deploymentTarget, clusterType)
+	configData := r.getConfigData(ctx, clusterType, deploymentTarget)
+
+	templater, err := scheduler.NewTemplater(deploymentTarget, clusterType, configData)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get templater")
 	}
@@ -139,7 +139,7 @@ func (r *AssignmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reqLogger.Info("Namespace Manifests", "Manifests", namespaceManifests)
 
 	//get configManifests
-	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, deploymentTarget, templater)
+	configManifests, configContentType, err := r.getConfigManifests(ctx, clusterType, templater)
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, assignment, err, "Failed to get config manifests")
 	}
@@ -285,14 +285,38 @@ func (r *AssignmentReconciler) getNamespaceManifests(ctx context.Context, cluste
 }
 
 // get the config manifests
-func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget, templater scheduler.Templater) ([]string, *string, error) {
-	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
-	configMaps := &corev1.ConfigMapList{}
-	err := r.List(ctx, configMaps, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
+func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, templater scheduler.Templater) ([]string, *string, error) {
+
+	// fetch the cluster type config template
+	template := &schedulerv1alpha1.Template{}
+	err := r.Get(ctx, client.ObjectKey{Name: clusterType.Spec.ConfigType, Namespace: clusterType.Namespace}, template)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// 	configData := r.getConfigData(ctx, configMaps.Items, clusterType, deploymentTarget)
+
+	// 	err = r.validateConfigData(ctx, configData, clusterType, deploymentTarget)
+
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+
+	// 	var manifests []string
+	// 	var contentType string
+	// 	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
+	// 		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
+	// 		manifest, err := yaml.Marshal(platformConfigMap.Object)
+	// 		if err != nil {
+	// 			return nil, nil, err
+	// 		}
+	// 		manifests = append(manifests, string(manifest))
+	// 		contentType = schedulerv1alpha1.YamlContentType
+	// 	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
+	// 		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
+	// 		manifests = append(manifests, platformConfigEnv)
+	// 		contentType = schedulerv1alpha1.EnvContentType
+	// =======
 	configData := r.getConfigData(ctx, configMaps.Items, clusterType, deploymentTarget)
 
 	err = r.validateConfigData(ctx, configData, clusterType, deploymentTarget)
@@ -301,21 +325,12 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 		return nil, nil, err
 	}
 
-	var manifests []string
-	var contentType string
-	if clusterType.Spec.ConfigType == schedulerv1alpha1.ConfigMapConfigType || clusterType.Spec.ConfigType == "" {
-		platformConfigMap := r.getPlatformConfigMap(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
-		manifest, err := yaml.Marshal(platformConfigMap.Object)
-		if err != nil {
-			return nil, nil, err
-		}
-		manifests = append(manifests, string(manifest))
-		contentType = schedulerv1alpha1.YamlContentType
-	} else if clusterType.Spec.ConfigType == schedulerv1alpha1.EnvFileConfigType {
-		platformConfigEnv := r.getPlatformConfigEnv(PlatformConfigLabel, templater.GetTargetNamespace(), configData)
-		manifests = append(manifests, platformConfigEnv)
-		contentType = schedulerv1alpha1.EnvContentType
+	contentType := template.Spec.ContentType
+	if contentType == "" {
+		contentType = (string)(schedulerv1alpha1.ConfigMapConfigType)
 	}
+
+	manifests, err := templater.ProcessTemplate(ctx, template)
 
 	return manifests, &contentType, nil
 }
@@ -371,19 +386,90 @@ func (r *AssignmentReconciler) validateConfigData(ctx context.Context, configDat
 
 }
 
-func (r *AssignmentReconciler) getConfigData(ctx context.Context, configMaps []corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]string {
+func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObject interface{}) interface{} {
+	// if existingValue and newValue are arrays, merge them
+	if existingArray, ok := existingObject.([]interface{}); ok {
+		newArray, ok := newObject.([]interface{})
+		if ok {
+			// append the new array to the existing array
+			return append(existingArray, newArray...)
+
+		}
+	}
+
+	// if existingValue and newValue are maps, merge them
+	existingMap, ok := existingObject.(map[interface{}]interface{})
+	if ok {
+		newMap, ok := newObject.(map[interface{}]interface{})
+		if ok {
+			//iterate over the new map and merge the values
+			for key, value := range newMap {
+				// check if the key exists in the existing map
+				if existingValue, ok := existingMap[key]; ok {
+					// merge the values
+					existingMap[key] = r.mergeObjects(existingValue, value)
+				} else {
+					// add the new value to the merged object
+					existingMap[key] = value
+				}
+			}
+			return existingMap
+		}
+	}
+
+	return newObject
+
+}
+
+func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) interface{} {
+	var object interface{}
+	err := yaml.Unmarshal([]byte(configValue), &object)
+	if err != nil {
+		return configValue
+	}
+
+	// if object is an array or a map, return object, otherwise return the configValue
+	if _, ok := object.([]interface{}); ok {
+		return object
+	}
+
+	if _, ok := object.(map[interface{}]interface{}); ok {
+		return object
+	}
+
+	return configValue
+
+}
+
+func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) map[string]interface{} {
+	// fetch all config maps in the cluster type namespace that have the label "platform-config: true"
+	configMapsList := &corev1.ConfigMapList{}
+	err := r.List(ctx, configMapsList, client.InNamespace(clusterType.Namespace), client.MatchingLabels{PlatformConfigLabel: "true"})
+	if err != nil {
+		return nil
+	}
+
+	configMaps := configMapsList.Items
+
 	//sort config maps by name
 	sort.Slice(configMaps, func(i, j int) bool {
 		return configMaps[i].Name < configMaps[j].Name
 	})
 
 	//iterate ovrer the config maps and select those that satisfy the cluster type labels
-	var clusterConfigData map[string]string = make(map[string]string)
+	var clusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, configMap := range configMaps {
-		if r.isConfigForClusterTypeAndTarget(configMap.Labels, clusterType, deploymentTarget) {
+		if r.isConfigForClusterTypeAndTarget(&configMap, clusterType, deploymentTarget) {
 			//add config map data to the cluster config data
 			for key, value := range configMap.Data {
-				clusterConfigData[key] = value
+				newObject := r.getObjectFromConfigValue(value)
+				// check if the map already has the key
+				if _, ok := clusterConfigData[key]; !ok {
+					clusterConfigData[key] = newObject
+				} else {
+					clusterConfigData[key] = r.mergeObjects(clusterConfigData[key], newObject)
+				}
+
 			}
 		}
 	}
@@ -397,7 +483,7 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, configMaps []c
 	sort.Strings(keys)
 
 	//iterate over the sorted keys and add the values to the cluster config data
-	var sortedClusterConfigData map[string]string = make(map[string]string)
+	var sortedClusterConfigData map[string]interface{} = make(map[string]interface{})
 	for _, key := range keys {
 		sortedClusterConfigData[key] = clusterConfigData[key]
 	}
@@ -405,34 +491,9 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, configMaps []c
 	return sortedClusterConfigData
 }
 
-func (r *AssignmentReconciler) getPlatformConfigMap(name string, namespace string, clusterConfigData map[string]string) unstructured.Unstructured {
-	configMap := unstructured.Unstructured{}
-	configMap.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "ConfigMap",
-	})
-
-	configMap.SetName(name)
-	configMap.SetNamespace(namespace)
-	configMap.Object["data"] = clusterConfigData
-
-	return configMap
-
-}
-
-func (r *AssignmentReconciler) getPlatformConfigEnv(name string, namespace string, clusterConfigData map[string]string) string {
-	var configEnv string
-
-	for key, value := range clusterConfigData {
-		configEnv += fmt.Sprintf("export %s=\"%s\"\n", key, value)
-	}
-	return configEnv
-}
-
-func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(labels map[string]string, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
+func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(config *corev1.ConfigMap, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
 	matches := true
-	for key, value := range labels {
+	for key, value := range config.Labels {
 		//TODO: have own labels namespace
 		if key != FluxOwnerLabel && key != FluxNamespaceLabel && key != PlatformConfigLabel {
 			if key == schedulerv1alpha1.ClusterTypeLabel {

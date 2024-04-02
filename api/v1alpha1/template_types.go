@@ -20,17 +20,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=reconciler;namespace
+// +kubebuilder:validation:Enum=reconciler;namespace;config
 type TemplateType string
 
 const (
 	ReconcilerTemplate TemplateType = "reconciler"
-	NemaspaceTemplate  TemplateType = "namespace"
+	NamespaceTemplate  TemplateType = "namespace"
+	ConfigTemplate     TemplateType = "config"
 )
 
 // TemplateSpec defines the desired state of Template
 type TemplateSpec struct {
 	Type TemplateType `json:"type"`
+
+	//+optional
+	ContentType string `json:"contentType"`
 
 	//+kubebuilder:pruning:PreserveUnknownFields
 	Manifests []string `json:"manifests"`

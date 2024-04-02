@@ -36,9 +36,7 @@ spec:
             description: ClusterTypeSpec defines the desired state of ClusterType
             properties:
               configType:
-                enum:
-                - configMap
-                - envFile
+                minLength: 0
                 type: string
               namespaceService:
                 minLength: 0
@@ -47,6 +45,7 @@ spec:
                 minLength: 0
                 type: string
             required:
+            - configType
             - namespaceService
             - reconciler
             type: object

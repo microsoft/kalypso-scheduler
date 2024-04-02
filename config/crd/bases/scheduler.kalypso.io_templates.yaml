@@ -35,6 +35,8 @@ spec:
           spec:
             description: TemplateSpec defines the desired state of Template
             properties:
+              contentType:
+                type: string
               manifests:
                 items:
                   type: string
@@ -44,6 +46,7 @@ spec:
                 enum:
                 - reconciler
                 - namespace
+                - config
                 type: string
             required:
             - manifests

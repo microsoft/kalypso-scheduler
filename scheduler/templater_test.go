@@ -33,6 +33,10 @@ const (
 	gitopsClusterTypeFile      = "testdata/clustertype.yaml"
 )
 
+var (
+	configData = map[string]interface{}{"FactoryName": "SuperPlant", "FactoryType": "Chemical"}
+)
+
 func TestNewTemplater(t *testing.T) {
 	getNewTemplater(t)
 }
@@ -60,7 +64,7 @@ func TestProcessTemplate(t *testing.T) {
 
 	var unstructuredProcessedTemplates []unstructured.Unstructured
 
-	//convert processedTemplates into a slice of unstructured objects
+	//convert processedTemplates into a map of unstructured objects
 	for _, processedTemplate := range processedTemplates {
 		var unstructuredObject map[string]interface{}
 		err = yaml.Unmarshal([]byte(processedTemplate), &unstructuredObject)
@@ -68,9 +72,12 @@ func TestProcessTemplate(t *testing.T) {
 		unstructuredProcessedTemplates = append(unstructuredProcessedTemplates, unstructured.Unstructured{Object: unstructuredObject})
 	}
 
+	t.Error(processedTemplates)
+
 	assert.Equal(t, "GitRepository", unstructuredProcessedTemplates[0].GetKind())
 	assert.Equal(t, "test-deployment-target-kustomize", unstructuredProcessedTemplates[0].Object["metadata"].(map[string]interface{})["name"])
 	assert.Equal(t, "Kustomization", unstructuredProcessedTemplates[1].GetKind())
+	assert.Equal(t, "SuperPlant", unstructuredProcessedTemplates[1].Object["metadata"].(map[string]interface{})["name"])
 
 }
 
@@ -100,7 +107,7 @@ func getNewTemplater(t *testing.T) *templater {
 	deploymentTarget := readDeploymentTargetFromFile(t, gitopsDeploymentTargetFile)
 	clusterType := readClusterTypeFromFile(t, gitopsClusterTypeFile)
 
-	templ, err := NewTemplater(deploymentTarget, clusterType)
+	templ, err := NewTemplater(deploymentTarget, clusterType, configData)
 	if assert.NoError(t, err) {
 		assert.NotEmpty(t, templ)
 	}

@@ -20,9 +20,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"strconv"
+	"strings"
+	"text/template"
 
+	"github.com/Masterminds/sprig"
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
+	"github.com/mitchellh/hashstructure"
+	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -39,6 +44,11 @@ type templater struct {
 // validate templater implements Templater interface
 var _ Templater = (*templater)(nil)
 
+var funcMap = template.FuncMap{
+	"toYaml": toYAML,
+	"hash":   hash,
+}
+
 type dataType struct {
 	DeploymentTargetName string
 	Namespace            string
@@ -48,12 +58,13 @@ type dataType struct {
 	Labels               map[string]string
 	Manifests            map[string]string
 	ClusterType          string
+	ConfigData           map[string]interface{}
 }
 
 // new templater function
-func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) (Templater, error) {
+func NewTemplater(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]interface{}) (Templater, error) {
 	return &templater{
-		data: newData(deploymentTarget, clusterType),
+		data: newData(deploymentTarget, clusterType, configData),
 	}, nil
 }
 
@@ -81,8 +92,9 @@ func (t *templater) ProcessTemplate(ctx context.Context, template *kalypsov1alph
 
 // recursively replace template variables in a map with appropriate values
 func (h *templater) replaceTemplateVariables(s string) (*string, error) {
+
 	//processs the string with text/template
-	t, err := template.New("template").Parse(s)
+	t, err := template.New("template").Funcs(sprig.TxtFuncMap()).Funcs(funcMap).Parse(s)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +117,7 @@ func buildTargetNamespace(deploymentTarget *kalypsov1alpha1.DeploymentTarget, cl
 }
 
 // create a new data struct
-func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType) dataType {
+func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *kalypsov1alpha1.ClusterType, configData map[string]interface{}) dataType {
 	environment := deploymentTarget.Spec.Environment
 	workspace := deploymentTarget.GetWorkspace()
 	workload := deploymentTarget.GetWorkload()
@@ -124,5 +136,22 @@ func newData(deploymentTarget *kalypsov1alpha1.DeploymentTarget, clusterType *ka
 		Labels:               labels,
 		Manifests:            manifests,
 		ClusterType:          clusterTypeName,
+		ConfigData:           configData,
 	}
+}
+
+func toYAML(v interface{}) string {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSuffix(string(data), "\n")
+}
+
+func hash(v interface{}) string {
+	hashValue, err := hashstructure.Hash(v, nil)
+	if err != nil {
+		return ""
+	}
+	return strconv.FormatUint(hashValue, 10)
 }
