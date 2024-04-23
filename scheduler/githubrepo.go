@@ -42,6 +42,7 @@ const (
 
 type GithubRepo interface {
 	CreatePR(prBranchName string, content *schedulerv1alpha1.RepoContentType) (*string, error)
+	UpdateIssue(gitIssueNumber *int, title string, message *string) (*int, error)
 }
 
 // implements GithubRepo interface
@@ -433,4 +434,51 @@ func (g *githubRepo) createPullRequest(baseBranchName, prBranchName string, isPr
 
 	prNumber := strconv.Itoa(pr.GetNumber())
 	return &prNumber, nil
+}
+
+// implement UpdateIssue function
+func (g *githubRepo) UpdateIssue(gitIssueNumber *int, title string, message *string) (*int, error) {
+
+	if message == nil {
+		//close issue
+		if gitIssueNumber != nil {
+			//check if issue exists and delete it
+			issue, _, err := g.client.Issues.Get(g.ctx, g.sourceOwner, g.sourceRepo, *gitIssueNumber)
+			if err != nil || issue == nil {
+				return nil, nil
+			}
+
+			issueRequest := &github.IssueRequest{
+				State: github.String("closed"),
+			}
+			_, _, err = g.client.Issues.Edit(g.ctx, g.sourceOwner, g.sourceRepo, *gitIssueNumber, issueRequest)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, nil
+	}
+
+	issueRequest := &github.IssueRequest{
+		Title: github.String(title),
+		Body:  message,
+	}
+
+	//check if issue exists, if not create it
+	if gitIssueNumber == nil || *gitIssueNumber == 0 {
+		issue, _, err := g.client.Issues.Create(g.ctx, g.sourceOwner, g.sourceRepo, issueRequest)
+		if err != nil {
+			return nil, err
+		}
+		gitIssueNumber = issue.Number
+	} else {
+		_, _, err := g.client.Issues.Edit(g.ctx, g.sourceOwner, g.sourceRepo, *gitIssueNumber, issueRequest)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return gitIssueNumber, nil
+
 }

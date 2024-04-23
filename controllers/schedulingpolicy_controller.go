@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
@@ -214,10 +213,10 @@ func (h *SchedulingPolicyReconciler) manageFailure(ctx context.Context, logger l
 	return ctrl.Result{}, err
 }
 
-func (r *SchedulingPolicyReconciler) findPolicies(object client.Object) []reconcile.Request {
+func (r *SchedulingPolicyReconciler) findPolicies(ctx context.Context, object client.Object) []reconcile.Request {
 	// Find the scheduling policies
 	schedulingPolicies := &schedulerv1alpha1.SchedulingPolicyList{}
-	err := r.List(context.TODO(), schedulingPolicies, client.InNamespace(object.GetNamespace()))
+	err := r.List(ctx, schedulingPolicies, client.InNamespace(object.GetNamespace()))
 	if err != nil {
 		return []reconcile.Request{}
 	}
@@ -272,10 +271,10 @@ func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&schedulerv1alpha1.SchedulingPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&schedulerv1alpha1.Assignment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
+			&schedulerv1alpha1.ClusterType{},
 			handler.EnqueueRequestsFromMapFunc(r.findPolicies)).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.DeploymentTarget{}},
+			&schedulerv1alpha1.DeploymentTarget{},
 			handler.EnqueueRequestsFromMapFunc(r.findPolicies)).
 		Complete(r)
 }

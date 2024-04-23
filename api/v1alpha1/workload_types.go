@@ -26,6 +26,8 @@ import (
 // WorkloadSpec defines the desired state of Workload
 type WorkloadSpec struct {
 	DeploymentTargets []DeploymentTargetDetail `json:"deploymentTargets,omitempty"`
+	// +optional
+	ConfigSchemas []string `json:"configSchemas"`
 }
 
 type DeploymentTargetDetail struct {

@@ -62,6 +62,11 @@ type GitOpsRepoStatus struct {
 	Conditions      []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
+type GitIssueStatus struct {
+	IssueNo     int    `json:"issueNo,omitempty"`
+	ContentHash string `json:"contentHash,omitempty"`
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 

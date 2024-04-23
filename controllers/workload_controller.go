@@ -134,6 +134,10 @@ func (r *WorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		deploymentTarget.Spec = workloadDeploymentTarget.DeploymentTargetSpec
+		//itereate over workload configchemas and add them to the deploymenttarget
+		for _, workloadConfigSchema := range workload.Spec.ConfigSchemas {
+			deploymentTarget.Spec.ConfigSchemas = append(deploymentTarget.Spec.ConfigSchemas, workloadConfigSchema)
+		}
 
 		// compose the deploymenttarget labels of workloadDeploymentTarget labels and workload labels
 		deploymentTargetLabels := make(map[string]string)

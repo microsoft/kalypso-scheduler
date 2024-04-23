@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -35,12 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/microsoft/kalypso-scheduler/scheduler"
-	"github.com/mitchellh/hashstructure"
 )
 
 // GitOpsRepoReconciler reconciles a GitOpsRepo object
@@ -123,14 +120,11 @@ func (r *GitOpsRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to get repo content")
 		}
 
-		// get the hash of the repoContent
-		repoContentHash, err := hashstructure.Hash(repoContent, nil)
+		// convert the hash to a string
+		repoContentHashString, err := getHashString(repoContent)
 		if err != nil {
 			return r.manageFailure(ctx, reqLogger, gitopsrepo, err, "Failed to hash the repoContent")
 		}
-
-		// convert the hash to a string
-		repoContentHashString := strconv.FormatUint(repoContentHash, 10)
 
 		// log hashes
 		reqLogger.Info("repoContentHash", "repoContentHash", repoContentHashString)
@@ -325,10 +319,10 @@ func (h *GitOpsRepoReconciler) manageFailure(ctx context.Context, logger logr.Lo
 	return ctrl.Result{}, err
 }
 
-func (r *GitOpsRepoReconciler) findGitOpsRepo(object client.Object) []reconcile.Request {
+func (r *GitOpsRepoReconciler) findGitOpsRepo(ctx context.Context, object client.Object) []reconcile.Request {
 	// Find all GitOps repos in the namespace
 	gitopsrepos := &schedulerv1alpha1.GitOpsRepoList{}
-	err := r.List(context.TODO(), gitopsrepos, client.InNamespace(object.GetNamespace()))
+	err := r.List(ctx, gitopsrepos, client.InNamespace(object.GetNamespace()))
 	if err != nil {
 		return []reconcile.Request{}
 	}
@@ -379,22 +373,23 @@ func (r *GitOpsRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.GitOpsRepo{}).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.SchedulingPolicy{}},
+			&schedulerv1alpha1.SchedulingPolicy{},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.Assignment{}},
+			&schedulerv1alpha1.Assignment{},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.AssignmentPackage{}},
+			&schedulerv1alpha1.AssignmentPackage{},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		Watches(
-			&source.Kind{Type: &schedulerv1alpha1.ClusterType{}},
+			&schedulerv1alpha1.ClusterType{},
 			handler.EnqueueRequestsFromMapFunc(r.findGitOpsRepo)).
 		WithEventFilter(r.normalPredicate()).
 		Complete(r)
 }
 
 // TODO:
+// Add reporting GH issues for other resources besides Assignment. Perhaps, inmplement a new resource to report issues for the Flux resources.
 // Platform flow
 // Make template configurations more robust: e.g. template contains name or content type and permissions, introduce new content type for configs
 // API docs
