@@ -436,8 +436,8 @@ func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) inte
 		return object
 	}
 
-	// remove leading and trailing ' from the configValue
-	configValue = strings.Trim(configValue, "'")
+	// remove leading and trailing ' including end of line from the configValue
+	configValue = strings.Trim(strings.TrimSpace(configValue), "'")
 
 	return configValue
 
