@@ -45,8 +45,9 @@ type templater struct {
 var _ Templater = (*templater)(nil)
 
 var funcMap = template.FuncMap{
-	"toYaml": toYAML,
-	"hash":   hash,
+	"toYaml":    toYAML,
+	"stringify": stringify,
+	"hash":      hash,
 }
 
 type dataType struct {
@@ -154,4 +155,22 @@ func hash(v interface{}) string {
 		return ""
 	}
 	return strconv.FormatUint(hashValue, 10)
+}
+
+func stringify(v interface{}) string {
+	// if v is a a map, iteratte over keys, if a key is an array or a map, marshal it into string
+	if m, ok := v.(map[string]interface{}); ok {
+		for key, value := range m {
+			switch value.(type) {
+			case map[string]interface{}, []interface{}:
+				data, err := yaml.Marshal(value)
+				if err != nil {
+					return ""
+				}
+				m[key] = string(data)
+			}
+		}
+		return toYAML(m)
+	}
+	return toYAML(v)
 }
