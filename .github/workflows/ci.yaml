@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate Image Tag
         run: |
-           IMAGE_TAG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
+           IMAGE_TAG=${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}
            echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV          
            echo $IMAGE_TAG > $GITHUB_WORKSPACE/IMAGE_TAG
            make build
@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Helm Chart
         run: |
-           export IMG=ghcr.io/microsoft/kalypso-scheduler:${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
+           export IMG=ghcr.io/microsoft/kalypso-scheduler:${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}
            make helm-build
 
       - name: Publish Helm chart
