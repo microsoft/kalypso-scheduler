@@ -45,8 +45,10 @@ type templater struct {
 var _ Templater = (*templater)(nil)
 
 var funcMap = template.FuncMap{
-	"toYaml": toYAML,
-	"hash":   hash,
+	"toYaml":    toYAML,
+	"stringify": stringify,
+	"hash":      hash,
+	"unquote":   unquote,
 }
 
 type dataType struct {
@@ -104,6 +106,12 @@ func (h *templater) replaceTemplateVariables(s string) (*string, error) {
 		return nil, err
 	}
 	rs := buf.String()
+
+	// handle nested templates
+	if strings.Contains(rs, "{{") {
+		return h.replaceTemplateVariables(rs)
+	}
+
 	return &rs, nil
 }
 
@@ -154,4 +162,31 @@ func hash(v interface{}) string {
 		return ""
 	}
 	return strconv.FormatUint(hashValue, 10)
+}
+
+func stringify(v interface{}) string {
+	// if v is a a map, iterate over keys, if a key is an array or a map, marshal it into string
+	if m, ok := v.(map[string]interface{}); ok {
+		newMap := make(map[string]interface{}, len(v.(map[string]interface{})))
+		for key, value := range m {
+			newMap[key] = value
+			switch value.(type) {
+			case map[string]interface{}, []interface{}:
+				data, err := yaml.Marshal(value)
+				if err != nil {
+					return ""
+				}
+				newMap[key] = string(data)
+			}
+		}
+		return toYAML(newMap)
+	}
+	return toYAML(v)
+}
+
+func unquote(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return strings.Trim(strings.Trim(strings.TrimSpace(s), "\""), "'")
+	}
+	return ""
 }
