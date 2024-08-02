@@ -330,6 +330,9 @@ func (r *AssignmentReconciler) getConfigManifests(ctx context.Context, clusterTy
 	}
 
 	manifests, err := templater.ProcessTemplate(ctx, template)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return manifests, &contentType, nil
 }
@@ -421,6 +424,12 @@ func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObjec
 }
 
 func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) interface{} {
+	trimmedConfigValue := strings.TrimSpace(configValue)
+	if strings.HasPrefix(trimmedConfigValue, "'") && strings.HasSuffix(trimmedConfigValue, "'") {
+		trimmedConfigValue = strings.Trim(trimmedConfigValue, "'")
+		return trimmedConfigValue
+	}
+
 	var object interface{}
 	err := yaml.Unmarshal([]byte(configValue), &object)
 	if err != nil {
@@ -435,9 +444,6 @@ func (r *AssignmentReconciler) getObjectFromConfigValue(configValue string) inte
 	if _, ok := object.(map[interface{}]interface{}); ok {
 		return object
 	}
-
-	// remove leading and trailing ' including end of line from the configValue
-	configValue = strings.Trim(strings.TrimSpace(configValue), "'")
 
 	return configValue
 
@@ -593,56 +599,56 @@ func (r *AssignmentReconciler) deleteGitHubIssue(ctx context.Context, logger log
 	return &schedulerv1alpha1.GitIssueStatus{}, nil
 }
 
-func (r *AssignmentReconciler) findAssignmentsForTemplate(ctx context.Context, object client.Object) []reconcile.Request {
-	//get template
-	template := &schedulerv1alpha1.Template{}
-	err := r.Get(ctx, client.ObjectKey{
-		Name:      object.GetName(),
-		Namespace: object.GetNamespace(),
-	}, template)
-	if err != nil {
-		return []reconcile.Request{}
-	}
+// func (r *AssignmentReconciler) findAssignmentsForTemplate(ctx context.Context, object client.Object) []reconcile.Request {
+// 	//get template
+// 	template := &schedulerv1alpha1.Template{}
+// 	err := r.Get(ctx, client.ObjectKey{
+// 		Name:      object.GetName(),
+// 		Namespace: object.GetNamespace(),
+// 	}, template)
+// 	if err != nil {
+// 		return []reconcile.Request{}
+// 	}
 
-	//get cluster types that use this template as a reconciler
-	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
-	err = r.List(ctx, clusterTypes, client.InNamespace(object.GetNamespace()), client.MatchingFields{ReconcilerField: template.Name})
-	if err != nil {
-		return []reconcile.Request{}
-	}
+// 	//get cluster types that use this template as a reconciler
+// 	clusterTypes := &schedulerv1alpha1.ClusterTypeList{}
+// 	err = r.List(ctx, clusterTypes, client.InNamespace(object.GetNamespace()), client.MatchingFields{ReconcilerField: template.Name})
+// 	if err != nil {
+// 		return []reconcile.Request{}
+// 	}
 
-	//get cluster types that use this template as a namespace service
-	clusterTypesNameSpace := &schedulerv1alpha1.ClusterTypeList{}
-	err = r.List(ctx, clusterTypesNameSpace, client.InNamespace(object.GetNamespace()), client.MatchingFields{NamespaceServiceField: template.Name})
-	if err != nil {
-		return []reconcile.Request{}
-	}
+// 	//get cluster types that use this template as a namespace service
+// 	clusterTypesNameSpace := &schedulerv1alpha1.ClusterTypeList{}
+// 	err = r.List(ctx, clusterTypesNameSpace, client.InNamespace(object.GetNamespace()), client.MatchingFields{NamespaceServiceField: template.Name})
+// 	if err != nil {
+// 		return []reconcile.Request{}
+// 	}
 
-	//append the two lists
-	clusterTypes.Items = append(clusterTypes.Items, clusterTypesNameSpace.Items...)
+// 	//append the two lists
+// 	clusterTypes.Items = append(clusterTypes.Items, clusterTypesNameSpace.Items...)
 
-	var requests []reconcile.Request
-	// iterate over the cluster types and find the assignments
-	for _, clusterType := range clusterTypes.Items {
-		assignments := &schedulerv1alpha1.AssignmentList{}
-		err = r.List(ctx, assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{ClusterTypeField: clusterType.Name})
-		if err != nil {
-			return []reconcile.Request{}
-		}
+// 	var requests []reconcile.Request
+// 	// iterate over the cluster types and find the assignments
+// 	for _, clusterType := range clusterTypes.Items {
+// 		assignments := &schedulerv1alpha1.AssignmentList{}
+// 		err = r.List(ctx, assignments, client.InNamespace(object.GetNamespace()), client.MatchingFields{ClusterTypeField: clusterType.Name})
+// 		if err != nil {
+// 			return []reconcile.Request{}
+// 		}
 
-		for _, item := range assignments.Items {
-			request := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      item.GetName(),
-					Namespace: item.GetNamespace(),
-				},
-			}
-			requests = append(requests, request)
-		}
-	}
+// 		for _, item := range assignments.Items {
+// 			request := reconcile.Request{
+// 				NamespacedName: types.NamespacedName{
+// 					Name:      item.GetName(),
+// 					Namespace: item.GetNamespace(),
+// 				},
+// 			}
+// 			requests = append(requests, request)
+// 		}
+// 	}
 
-	return requests
-}
+// 	return requests
+// }
 
 func (r *AssignmentReconciler) findAssignmentsInObjectNamespace(ctx context.Context, object client.Object) []reconcile.Request {
 
@@ -704,7 +710,7 @@ func (r *AssignmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&schedulerv1alpha1.AssignmentPackage{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&schedulerv1alpha1.Template{},
-			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsForTemplate)).
+			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsInObjectNamespace)).
 		Watches(
 			&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(r.findAssignmentsInObjectNamespace)).
