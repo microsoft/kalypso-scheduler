@@ -100,9 +100,9 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list ClusterTypes")
 	}
 
-	// fetch the list if deployment targets in the namespace
+	// fetch the list if deployment targets in the namespace with environment field equal to the namespace name
 	deploymentTargets := &schedulerv1alpha1.DeploymentTargetList{}
-	err = r.List(ctx, deploymentTargets, client.InNamespace(req.Namespace))
+	err = r.List(ctx, deploymentTargets, client.InNamespace(req.Namespace), client.MatchingFields{"environment": req.Namespace})
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list DeploymentTargets")
 	}
