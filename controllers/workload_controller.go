@@ -40,6 +40,10 @@ type WorkloadReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const (
+	EnvironmentField = "spec.environment"
+)
+
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=workloads/finalizers,verbs=update
@@ -236,6 +240,19 @@ func (h *WorkloadReconciler) manageFailure(ctx context.Context, logger logr.Logg
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *WorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Add the field index for the environmrnt in the deployment target
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.DeploymentTarget{}, EnvironmentField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.DeploymentTarget).Spec.Environment}
+	}); err != nil {
+		return err
+	}
+
+	// if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.Assignment{}, DeploymentTargetField, func(rawObj client.Object) []string {
+	// 	return []string{rawObj.(*schedulerv1alpha1.Assignment).Spec.DeploymentTarget}
+	// }); err != nil {
+	// 	return err
+	// }
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.Workload{}).
 		Owns(&schedulerv1alpha1.DeploymentTarget{}).
