@@ -268,7 +268,7 @@ func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	// Add the field index for the environmrnt in the deployment target
+	// Add the field index for the environment in the deployment target
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.DeploymentTarget{}, EnvironmentField, func(rawObj client.Object) []string {
 		return []string{rawObj.(*schedulerv1alpha1.DeploymentTarget).Spec.Environment}
 	}); err != nil {
