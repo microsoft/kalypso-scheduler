@@ -48,6 +48,7 @@ const (
 	ReconcilerField       = "spec.reconciler"
 	NamespaceServiceField = "spec.namespaceService"
 	DeploymentTargetField = "spec.deploymentTarget"
+	EnvironmentField      = "spec.environment"
 )
 
 // +kubebuilder:rbac:groups=scheduler.kalypso.io,resources=schedulingpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -100,9 +101,9 @@ func (r *SchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list ClusterTypes")
 	}
 
-	// fetch the list if deployment targets in the namespace
+	// fetch the list of deployment targets in the namespace with environment field equal to the namespace name
 	deploymentTargets := &schedulerv1alpha1.DeploymentTargetList{}
-	err = r.List(ctx, deploymentTargets, client.InNamespace(req.Namespace))
+	err = r.List(ctx, deploymentTargets, client.InNamespace(req.Namespace), client.MatchingFields{EnvironmentField: req.Namespace})
 	if err != nil {
 		return r.manageFailure(ctx, reqLogger, schedulingPolicy, err, "Failed to list DeploymentTargets")
 	}
@@ -263,6 +264,13 @@ func (r *SchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add the field index for the deployment target in the assignment
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.Assignment{}, DeploymentTargetField, func(rawObj client.Object) []string {
 		return []string{rawObj.(*schedulerv1alpha1.Assignment).Spec.DeploymentTarget}
+	}); err != nil {
+		return err
+	}
+
+	// Add the field index for the environment in the deployment target
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &schedulerv1alpha1.DeploymentTarget{}, EnvironmentField, func(rawObj client.Object) []string {
+		return []string{rawObj.(*schedulerv1alpha1.DeploymentTarget).Spec.Environment}
 	}); err != nil {
 		return err
 	}

@@ -236,6 +236,7 @@ func (h *WorkloadReconciler) manageFailure(ctx context.Context, logger logr.Logg
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *WorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulerv1alpha1.Workload{}).
 		Owns(&schedulerv1alpha1.DeploymentTarget{}).
