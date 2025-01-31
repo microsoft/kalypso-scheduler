@@ -37,7 +37,7 @@ import (
 
 	"github.com/go-logr/logr"
 	schedulerv1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
-	"github.com/microsoft/kalypso-scheduler/scheduler"
+	"github.com/Crayon-HU/kalypso-scheduler/scheduler"
 )
 
 // GitOpsRepoReconciler reconciles a GitOpsRepo object

@@ -68,18 +68,33 @@ var (
 	readmeContent           string = "This folder contains deployment targets scheduled on the cluster type"
 )
 
-func getGitHubClient(ctx context.Context) *github.Client {
+func getBaseAPIURL(domainName string) string {
+	if domainName == "github.com" {
+		return "https://api.github.com/", nil
+	}
+
+	// GitHub Enterprise API base URL (e.g., https://github.example.com/api/v3/)
+	return fmt.Sprintf("https://%s/api/v3/", domainName)
+}
+
+func getGitHubClient(ctx context.Context, domainName string) *github.Client {
 	token := os.Getenv("GITHUB_AUTH_TOKEN")
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
+
+	// Determine API base URL
+	baseURL= getBaseAPIURL(domainName)
+	client = github.NewClient(tc)
+	if baseURL != "https://api.github.com/" {
+		client = client.WithEnterpriseURLs(baseURL, baseUrl)
+	}
 	return client
 }
 
 // new githubRepo function
 func NewGithubRepo(ctx context.Context, repo *schedulerv1alpha1.GitOpsRepoSpec) (GithubRepo, error) {
 	//parse url into owner and repo
-	sourceOwner, sourceRepo, err := parseRepoURL(repo.Repo)
+	domainName, sourceOwner, sourceRepo, err := parseRepoURL(repo.Repo)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +103,7 @@ func NewGithubRepo(ctx context.Context, repo *schedulerv1alpha1.GitOpsRepoSpec) 
 		repo:        repo,
 		sourceOwner: *sourceOwner,
 		sourceRepo:  *sourceRepo,
-		client:      getGitHubClient(ctx),
+		client:      getGitHubClient(ctx, domainName),
 		ctx:         ctx,
 		logger:      log.FromContext(ctx),
 	}, nil
@@ -134,21 +149,22 @@ func (g *githubRepo) CreatePR(prBranchName string, content *schedulerv1alpha1.Re
 }
 
 // implement parse function
-func parseRepoURL(repoUrl string) (owner, repo *string, err error) {
+func parseRepoURL(repoUrl string) (domainName, owner, repo *string, err error) {
 	u, err := url.Parse(repoUrl)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	urlPart := strings.Split(u.Path, "/")
 	if len(urlPart) < 3 {
-		return nil, nil, errors.New("invalid repo url")
+		return nil, nil, nil, errors.New("invalid repo url")
 
 	}
 
+	domainName = u.Host
 	owner = &urlPart[1]
 	repo = &urlPart[2]
 
-	return owner, repo, nil
+	return domainName, owner, repo, nil
 }
 
 func (g *githubRepo) getBaseBranch(baseBranchName string) (ref *github.Reference, err error) {
