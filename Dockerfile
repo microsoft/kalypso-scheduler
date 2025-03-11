@@ -1,5 +1,9 @@
 # Build the manager binary
-FROM golang:1.20 as builder
+# To allow for cross-platform compilation (supporting both amd64 AND arm64 from the same container)
+# the $BUILDPLATFORM variable is used here so that it can be injected during build specifyiing the desired platform(s) via:
+# docker build --platform linux/amd64,linux/arm64,linux/arm/v7 -t kalypso-kalypso-scheduler-controller-manager .
+FROM --platform=$BUILDPLATFORM golang:1.20 AS builder
+
 ARG TARGETOS
 ARG TARGETARCH
 
