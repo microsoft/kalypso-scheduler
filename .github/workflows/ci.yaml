@@ -34,7 +34,8 @@ jobs:
           push: true
           context: .
           file: Dockerfile
-          tags: ghcr.io/microsoft/kalypso-scheduler:${{ env.IMAGE_TAG }}, ghcr.io/microsoft/kalypso-scheduler:latest        
+          tags: ghcr.io/microsoft/kalypso-scheduler:${{ env.IMAGE_TAG }}, ghcr.io/microsoft/kalypso-scheduler:latest
+          platforms: ${{ vars.PLATFORMS }}                  
 
       - name: Upload Image Tags
         uses: actions/upload-artifact@v4.4.3
