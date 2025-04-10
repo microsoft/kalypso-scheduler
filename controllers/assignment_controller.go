@@ -482,6 +482,30 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 		}
 	}
 
+	// fetch all config maps in the cluster type namespace with the config map name starting with "azure-app-config"
+	azConfigMapsList := &corev1.ConfigMapList{}
+	err = r.List(ctx, azConfigMapsList, client.InNamespace(clusterType.Namespace))
+	if err != nil {
+		return nil
+	}
+
+	// Filter ConfigMaps with names starting with "azure-app-config"
+	for _, configMap := range azConfigMapsList.Items {
+		if strings.HasPrefix(configMap.Name, "azure-app-config") {
+			for key, value := range configMap.Data {
+				labels, trimmedKey := r.getLabelsFromKey(key)
+				if r.isConfigForClusterTypeAndTarget(labels, clusterType, deploymentTarget) {
+					newObject := r.getObjectFromConfigValue(value)
+					if _, ok := clusterConfigData[trimmedKey]; !ok {
+						clusterConfigData[trimmedKey] = newObject
+					} else {
+						clusterConfigData[trimmedKey] = r.mergeObjects(clusterConfigData[trimmedKey], newObject)
+					}
+				}
+			}
+		}
+	}
+
 	// sort the cluster config data by key
 	keys := make([]string, 0, len(clusterConfigData))
 	for key := range clusterConfigData {
@@ -497,6 +521,23 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	}
 
 	return sortedClusterConfigData
+}
+
+func (r *AssignmentReconciler) getLabelsFromKey(key string) (map[string]string, string) {
+	// key has a structure like lablel1.value1.label2.value2.key a number of labels is indefinite
+	labels := make(map[string]string)
+	// split the key by "."
+	parts := strings.Split(key, ".")
+
+	// iterate over the parts and check if they are labels
+	for i := 1; i < len(parts)-1; i += 2 {
+		label := parts[i-1]
+		value := parts[i]
+		labels[label] = value
+	}
+	trimmedKey := parts[len(parts)-1]
+
+	return labels, trimmedKey
 }
 
 func (r *AssignmentReconciler) isConfigForClusterTypeAndTarget(labels map[string]string, clusterType *schedulerv1alpha1.ClusterType, deploymentTarget *schedulerv1alpha1.DeploymentTarget) bool {
