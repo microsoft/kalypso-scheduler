@@ -492,10 +492,19 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 	// Filter ConfigMaps with names starting with "azure-app-config"
 	for _, configMap := range azConfigMapsList.Items {
 		if strings.HasPrefix(configMap.Name, "azure-app-config") {
-			for key, value := range configMap.Data {
+			keys := make([]string, 0, len(configMap.Data))
+			for key := range configMap.Data {
+				keys = append(keys, key)
+			}
+			//sort the keys by length
+			sort.Slice(keys, func(i, j int) bool {
+				return len(keys[i]) < len(keys[j])
+			})
+
+			for _, key := range keys {
 				labels, trimmedKey := r.getLabelsFromKey(key)
 				if r.isConfigForClusterTypeAndTarget(labels, clusterType, deploymentTarget) {
-					newObject := r.getObjectFromConfigValue(value)
+					newObject := r.getObjectFromConfigValue(configMap.Data[key])
 					if _, ok := clusterConfigData[trimmedKey]; !ok {
 						clusterConfigData[trimmedKey] = newObject
 					} else {
