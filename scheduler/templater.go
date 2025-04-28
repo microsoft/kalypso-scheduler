@@ -27,7 +27,7 @@ import (
 	"github.com/Masterminds/sprig"
 	kalypsov1alpha1 "github.com/microsoft/kalypso-scheduler/api/v1alpha1"
 	"github.com/mitchellh/hashstructure"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
