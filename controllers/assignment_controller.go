@@ -393,8 +393,30 @@ func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObjec
 	if existingArray, ok := existingObject.([]interface{}); ok {
 		newArray, ok := newObject.([]interface{})
 		if ok {
-			// append the new array to the existing array
-			return append(existingArray, newArray...)
+			// iterate over the new array and merge the values
+			for i := 0; i < len(newArray); i++ {
+				value := newArray[i]
+				matched := false
+				// check if the value is a map
+				if valueMap, ok := value.(map[interface{}]interface{}); ok {
+					// check if the map with same "name" key exists in the existing array
+					for j := 0; j < len(existingArray); j++ {
+						existingValue := existingArray[j]
+						if existingValueMap, ok := existingValue.(map[interface{}]interface{}); ok {
+							if existingValueMap["name"] == valueMap["name"] {
+								// merge the maps
+								existingArray[j] = r.mergeObjects(existingValue, value)
+								matched = true
+							}
+						}
+					}
+				}
+				if !matched {
+					existingArray = append(existingArray, value)
+				}
+			}
+
+			return existingArray
 
 		}
 	}
