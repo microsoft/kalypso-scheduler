@@ -398,12 +398,12 @@ func (r *AssignmentReconciler) mergeObjects(existingObject interface{}, newObjec
 				value := newArray[i]
 				matched := false
 				// check if the value is a map
-				if _, ok := value.(map[interface{}]interface{}); ok {
+				if valueMap, ok := value.(map[interface{}]interface{}); ok {
 					// check if the map with same "name" key exists in the existing array
 					for j := 0; j < len(existingArray); j++ {
 						existingValue := existingArray[j]
 						if existingValueMap, ok := existingValue.(map[interface{}]interface{}); ok {
-							if existingValueMap["name"] == value.(map[interface{}]interface{})["name"] {
+							if existingValueMap["name"] == valueMap["name"] {
 								// merge the maps
 								existingArray[j] = r.mergeObjects(existingValue, value)
 								matched = true
