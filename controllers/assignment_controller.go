@@ -533,7 +533,7 @@ func (r *AssignmentReconciler) getConfigData(ctx context.Context, clusterType *s
 }
 
 func (r *AssignmentReconciler) getLabelsFromKey(key string) (map[string]string, string) {
-	// key has a structure like lablel1.value1.label2.value2.key a number of labels is indefinite
+	// key has a structure like label1.value1.label2.value2.key a number of labels is indefinite
 	labels := make(map[string]string)
 	// split the key by "."
 	parts := strings.Split(key, ".")
