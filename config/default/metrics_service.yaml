@@ -5,6 +5,10 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
+  annotations:
+    # This annotation indicates that the metrics are now secured directly by controller-runtime
+    # using the WithAuthenticationAndAuthorization filter, replacing the need for kube-rbac-proxy
+    controller-runtime.security.kubernetes.io/metrics-secured: "true"
 spec:
   ports:
   - name: https

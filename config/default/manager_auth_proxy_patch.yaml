@@ -1,4 +1,6 @@
-# This patch updates the manager to expose secured metrics directly
+# This patch updates the manager to expose secured metrics directly.
+# The metrics endpoint is now secured using controller-runtime's WithAuthenticationAndAuthorization
+# filter, eliminating the need for the kube-rbac-proxy sidecar container.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
