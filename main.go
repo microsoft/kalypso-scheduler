@@ -76,9 +76,9 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress:     metricsAddr,
-			SecureServing:   true,
-			FilterProvider:  filters.WithAuthenticationAndAuthorization, // Secure metrics endpoint with authentication and authorization
+			BindAddress:    metricsAddr,
+			SecureServing:  true,
+			FilterProvider: filters.WithAuthenticationAndAuthorization, // Secure metrics endpoint with authentication and authorization
 		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
