@@ -1,18 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: controller-manager-metrics-service
-  namespace: system
   labels:
     control-plane: controller-manager
-  annotations:
-    # This annotation indicates that the metrics are now secured directly by controller-runtime
-    # using the WithAuthenticationAndAuthorization filter, replacing the need for kube-rbac-proxy
-    controller-runtime.security.kubernetes.io/metrics-secured: "true"
+  name: controller-manager-metrics-service
+  namespace: system
 spec:
   ports:
   - name: https
     port: 8443
-    targetPort: https-metrics
+    targetPort: https
   selector:
     control-plane: controller-manager
