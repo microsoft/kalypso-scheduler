@@ -3,11 +3,13 @@ kind: Service
 metadata:
   name: kalypso-controller-manager-metrics-service
   labels:
-    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/component: manager
     app.kubernetes.io/created-by: kalypso-scheduler
     app.kubernetes.io/part-of: kalypso-scheduler
     control-plane: controller-manager
   {{- include "kalypso-scheduler.labels" . | nindent 4 }}
+  annotations:
+    auth.metrics.controller-runtime.sigs.k8s.io: secured-by-controller-runtime
 spec:
   type: {{ .Values.metricsService.type }}
   selector:
