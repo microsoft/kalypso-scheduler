@@ -65,9 +65,14 @@ Given that feature description, do this:
 
     1. Parse user description from Input
        If empty: ERROR "No feature description provided"
-    2. Extract key concepts from description
+    2. **Detect if input is already a user story**:
+       - User stories typically follow: "As a [role] I need/want [feature] so that [benefit]"
+       - If input matches this pattern, treat it as a SINGLE user story
+       - Do NOT create multiple derivative user stories from an existing user story
+       - Instead, create comprehensive acceptance scenarios covering all aspects
+    3. Extract key concepts from description
        Identify: actors, actions, data, constraints
-    3. For unclear aspects:
+    4. For unclear aspects:
        - Make informed guesses based on context and industry standards
        - Only mark with [NEEDS CLARIFICATION: specific question] if:
          - The choice significantly impacts feature scope or user experience
@@ -75,17 +80,19 @@ Given that feature description, do this:
          - No reasonable default exists
        - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
        - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
-    4. Fill User Scenarios & Testing section
+    5. Fill User Scenarios & Testing section
+       - If input IS a user story: Use it directly, add acceptance scenarios
+       - If input is NOT a user story: Create prioritized user stories
        If no clear user flow: ERROR "Cannot determine user scenarios"
-    5. Generate Functional Requirements
+    6. Generate Functional Requirements
        Each requirement must be testable
        Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
-    6. Define Success Criteria
+    7. Define Success Criteria
        Create measurable, technology-agnostic outcomes
        Include both quantitative metrics (time, performance, volume) and qualitative measures (user satisfaction, task completion)
        Each criterion must be verifiable without implementation details
-    7. Identify Key Entities (if data involved)
-    8. Return: SUCCESS (spec ready for planning)
+    8. Identify Key Entities (if data involved)
+    9. Return: SUCCESS (spec ready for planning)
 
 5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
@@ -204,15 +211,16 @@ Given that feature description, do this:
 
 When creating this spec from a user prompt:
 
-1. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
-2. **Document assumptions**: Record reasonable defaults in the Assumptions section
-3. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
+1. **Detect existing user stories**: If the input follows "As a [role] I need/want [feature] so that [benefit]" pattern, treat it as a single user story - do NOT create multiple derivative stories
+2. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
+3. **Document assumptions**: Record reasonable defaults in the Assumptions section
+4. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
    - Significantly impact feature scope or user experience
    - Have multiple reasonable interpretations with different implications
    - Lack any reasonable default
-4. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
-5. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
-6. **Common areas needing clarification** (only if no reasonable default exists):
+5. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
+6. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
+7. **Common areas needing clarification** (only if no reasonable default exists):
    - Feature scope and boundaries (include/exclude specific use cases)
    - User types and permissions (if multiple conflicting interpretations possible)
    - Security/compliance requirements (when legally/financially significant)

@@ -1,16 +1,16 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0 → 1.1.0 (Added Kubebuilder framework requirement)
+Version: 1.1.0 → 1.2.0 (Added Specification Development Standards)
 Added Sections:
-  - Kubebuilder Framework section under Kubernetes Operator Standards
+  - Specification Development Standards section
+  - User Story Recognition and Handling principle
 Modified Principles:
-  - I. Controller Pattern Adherence - Added explicit Kubebuilder requirement
-  - Kubernetes Operator Standards - Added Kubebuilder-specific requirements
-Removed Sections: N/A
+  - Added guidance for when input is already a user story
 Templates Status:
   ✅ plan-template.md - Reviewed, compatible with constitution
-  ✅ spec-template.md - Reviewed, compatible with constitution
+  ✅ spec-template.md - Updated with user story detection guidance
   ✅ tasks-template.md - Reviewed, compatible with constitution
+  ✅ speckit.specify.prompt.md - Updated with user story detection in execution flow
 Follow-up TODOs: None
 -->
 
@@ -67,6 +67,21 @@ API changes MUST follow Kubernetes API versioning conventions:
 - Deprecation warnings MUST precede removals by at least one minor version
 
 **Rationale**: Users depend on API stability for production workloads. Following Kubernetes versioning standards ensures predictable upgrade paths and user trust.
+
+## Specification Development Standards
+
+### User Story Recognition and Handling
+
+When creating feature specifications, the process MUST correctly identify and handle existing user stories:
+
+- Detect if input follows user story pattern: "As a [role] I need/want [feature] so that [benefit]"
+- If input IS a user story: Use it directly as a single user story in the specification
+- Do NOT create multiple derivative user stories from an existing user story
+- Do NOT decompose a user story into sub-stories unless explicitly requested
+- Instead, create comprehensive acceptance scenarios that cover all aspects of the user story
+- If input is NOT a user story: Create prioritized, independently testable user journeys
+
+**Rationale**: User stories from issue trackers or stakeholders are already validated requirements. Creating derivative stories dilutes the original intent, fragments the feature scope, and creates confusion about what was actually requested. Acceptance scenarios provide the necessary detail without losing focus on the core user need.
 
 ## Kubernetes Operator Standards
 
@@ -152,7 +167,7 @@ This constitution is the authoritative governance document for the Kalypso Sched
 - CI checks enforce code generation, formatting, and testing requirements
 - Maintainers may request architectural changes for principle violations
 
-### Exception Handling
+**Exception Handling
 
 When principles conflict with practical constraints, exceptions MAY be granted if:
 - The conflict is explicitly documented in the PR
@@ -160,4 +175,4 @@ When principles conflict with practical constraints, exceptions MAY be granted i
 - The technical debt is tracked in an issue with remediation plan
 - Project maintainers approve the exception
 
-**Version**: 1.1.0 | **Ratified**: 2025-11-11 | **Last Amended**: 2025-11-11
+**Version**: 1.2.0 | **Ratified**: 2025-11-11 | **Last Amended**: 2025-11-11
