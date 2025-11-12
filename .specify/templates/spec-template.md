@@ -8,9 +8,21 @@
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
-  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
-  you should still have a viable MVP (Minimum Viable Product) that delivers value.
+  CRITICAL: Determine if the input description is ALREADY a user story.
+  
+  A user story typically follows the pattern:
+  "As a [role] I need/want [feature] so that [benefit]"
+  
+  IF the input is ALREADY a complete user story:
+  - Use it directly as the single user story in this section
+  - Do NOT create multiple derivative user stories
+  - Do NOT decompose it into sub-stories unless explicitly requested
+  - Break down the story into detailed acceptance scenarios that cover all aspects
+  
+  IF the input is a feature request (not a user story):
+  - Create PRIORITIZED user journeys ordered by importance
+  - Each user story/journey must be INDEPENDENTLY TESTABLE
+  - Meaning if you implement just ONE of them, you should still have a viable MVP
   
   Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
   Think of each story as a standalone slice of functionality that can be:
@@ -20,9 +32,9 @@
   - Demonstrated to users independently
 -->
 
-### User Story 1 - [Brief Title] (Priority: P1)
+### User Story [1] - [Brief Title] (Priority: P1)
 
-[Describe this user journey in plain language]
+[Describe this user journey in plain language - or paste the original user story if input was already a user story]
 
 **Why this priority**: [Explain the value and why it has this priority level]
 
@@ -34,6 +46,8 @@
 2. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
 ---
+
+[Add more user stories ONLY if input was a feature request, not if it was already a user story]
 
 ### User Story 2 - [Brief Title] (Priority: P2)
 
@@ -48,22 +62,6 @@
 1. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
 ---
-
-### User Story 3 - [Brief Title] (Priority: P3)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-[Add more user stories as needed, each with an assigned priority]
 
 ### Edge Cases
 
