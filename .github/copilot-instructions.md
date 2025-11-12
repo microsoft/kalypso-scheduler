@@ -256,3 +256,10 @@ Each Environment CR creates a namespace on the control plane cluster where Flux 
 **Constitution Reference**: See `.specify/memory/constitution.md` for comprehensive governance, testing requirements, and development standards.
 
 **README**: See `README.md` for architecture diagrams and example CRD manifests.
+
+## Active Technologies
+- Bash 4.0+ (for maximum portability across macOS/Linux) + Azure CLI, kubectl, git, GitHub CLI (gh), jq, curl (001-bootstrapping-script)
+- Local filesystem for configuration state, GitHub for repositories, Azure for cluster state (001-bootstrapping-script)
+
+## Recent Changes
+- 001-bootstrapping-script: Added Bash 4.0+ (for maximum portability across macOS/Linux) + Azure CLI, kubectl, git, GitHub CLI (gh), jq, curl

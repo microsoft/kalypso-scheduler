@@ -37,8 +37,8 @@ As a platform engineer I need a bootstrapping script with an md manual so that I
 4. **Given** a platform engineer with existing gitops repository, **When** they provide the repository URL, **Then** the script validates and uses the existing repository instead of creating a new one
 5. **Given** a platform engineer runs the script, **When** any component creation or validation fails, **Then** the script displays clear error messages and guidance for resolution
 6. **Given** the script completes successfully, **When** the engineer reviews the generated markdown manual, **Then** they find comprehensive documentation covering prerequisites, configuration options, troubleshooting, and next steps
-7. **Given** the minimal control-plane repo is created, **When** the engineer inspects it, **Then** it contains exactly one dev environment, one cluster type, one scheduling policy, and one config map
-8. **Given** the minimal gitops repo is created, **When** the engineer inspects it, **Then** it contains the GitHub workflow and readme as specified
+7. **Given** the minimal control-plane repo is created, **When** the engineer inspects it, **Then** main branch contains .environments, .github/workflows (CI/CD), templates, and sample workload registration; dev branch contains cluster-types, configs, scheduling-policies, base-repo.yaml, and gitops-repo.yaml
+8. **Given** the minimal gitops repo is created, **When** the engineer inspects it, **Then** main branch has README; dev branch has .github/workflows/check-promote.yaml workflow
 
 ---
 
@@ -59,9 +59,9 @@ As a platform engineer I need a bootstrapping script with an md manual so that I
 
 - **FR-001**: The bootstrapping script MUST provide an option to create a new AKS cluster with Kalypso Scheduler installed
 - **FR-002**: The bootstrapping script MUST provide an option to install Kalypso Scheduler on an existing AKS cluster specified by the user
-- **FR-003**: The bootstrapping script MUST create a minimal control-plane repository containing exactly one dev environment, one cluster type, one scheduling policy, and one config map when no existing repository is provided
+- **FR-003**: The bootstrapping script MUST create a minimal control-plane repository with main and dev branches when no existing repository is provided. Main branch contains: .environments directory, .github/workflows directory (ci.yaml, cd.yaml, check-promote.yaml), templates directory, workloads directory with sample workload registration. Dev branch contains: cluster-types directory, configs directory, scheduling-policies directory, base-repo.yaml, and gitops-repo.yaml
 - **FR-004**: The bootstrapping script MUST provide an option to use an existing control-plane git repository URL instead of creating a new one
-- **FR-005**: The bootstrapping script MUST create a minimal gitops repository containing required GitHub workflows and readme when no existing repository is provided
+- **FR-005**: The bootstrapping script MUST create a minimal gitops repository with main and dev branches when no existing repository is provided. Main branch contains minimal README. Dev branch contains .github/workflows/check-promote.yaml workflow
 - **FR-006**: The bootstrapping script MUST provide an option to use an existing gitops repository URL instead of creating a new one
 - **FR-007**: The bootstrapping script MUST validate that existing repositories (when provided) meet minimum structural requirements for Kalypso Scheduler integration
 - **FR-008**: The bootstrapping script MUST install Kalypso Scheduler on the target cluster (new or existing) as the final step
