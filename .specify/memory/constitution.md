@@ -1,50 +1,163 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+Version: 1.0.0 → 1.1.0 (Added Kubebuilder framework requirement)
+Added Sections:
+  - Kubebuilder Framework section under Kubernetes Operator Standards
+Modified Principles:
+  - I. Controller Pattern Adherence - Added explicit Kubebuilder requirement
+  - Kubernetes Operator Standards - Added Kubebuilder-specific requirements
+Removed Sections: N/A
+Templates Status:
+  ✅ plan-template.md - Reviewed, compatible with constitution
+  ✅ spec-template.md - Reviewed, compatible with constitution
+  ✅ tasks-template.md - Reviewed, compatible with constitution
+Follow-up TODOs: None
+-->
+
+# Kalypso Scheduler Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Kubebuilder Framework and Controller Pattern Adherence
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+The project MUST be built using Kubebuilder and follow Kubernetes controller patterns rigorously:
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- All scaffolding and code generation MUST use Kubebuilder framework
+- Each controller reconciles exactly one Custom Resource Definition (CRD)
+- Reconciliation loops MUST be idempotent and level-triggered (not edge-triggered)
+- Controllers MUST use the controller-runtime framework and follow its best practices
+- Kubebuilder markers MUST be used for all code generation (CRDs, RBAC, webhooks)
+- Status conditions MUST accurately reflect the current state of resources
+- All interactions with Kubernetes API MUST use client-go and structured types
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Kubebuilder provides standardized scaffolding, code generation, and best practices for Kubernetes operators. It ensures consistency, reduces boilerplate, and maintains compatibility with the Kubernetes ecosystem. Adherence to Kubebuilder patterns is essential for mission-critical infrastructure components.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### II. Declarative API Design
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+All Custom Resource Definitions MUST follow declarative design principles:
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- Spec fields describe desired state only (what the user wants)
+- Status fields describe observed state only (what the system has achieved)
+- NEVER include imperative commands or triggers in CRD specs
+- Use standard Kubernetes conventions for field names and structures
+- Provide comprehensive OpenAPI v3 schemas with validation
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: Declarative APIs enable GitOps workflows, version control, and predictable behavior. They are fundamental to Kubernetes' design philosophy.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### III. Separation of Concerns
+
+Code organization MUST maintain clear boundaries:
+
+- Controllers (reconciliation logic) in `controllers/` package
+- API types (CRDs) in `api/v1alpha1/` package
+- Business logic (scheduling, templating) in dedicated packages (`scheduler/`)
+- Utilities and helpers isolated from core business logic
+- Test code mirrors source structure in dedicated test files
+
+**Rationale**: Clear separation enables independent testing, parallel development, and easier onboarding. It prevents circular dependencies and keeps the codebase maintainable as it grows.
+
+### IV. API Versioning and Stability
+
+API changes MUST follow Kubernetes API versioning conventions:
+
+- v1alpha1 APIs are unstable and may change without notice
+- Transition to v1beta1 requires stability commitment and conversion webhooks
+- v1 APIs MUST maintain backward compatibility
+- Breaking changes require new API versions with proper migration paths
+- Deprecation warnings MUST precede removals by at least one minor version
+
+**Rationale**: Users depend on API stability for production workloads. Following Kubernetes versioning standards ensures predictable upgrade paths and user trust.
+
+## Kubernetes Operator Standards
+
+### Kubebuilder Framework Requirements
+
+The project MUST leverage Kubebuilder's capabilities throughout:
+
+- Use `kubebuilder` CLI for scaffolding new APIs, controllers, and webhooks
+- Maintain `PROJECT` file with accurate Kubebuilder metadata
+- Use `make` targets generated by Kubebuilder (`manifests`, `generate`, `test`, `deploy`)
+- Keep Kubebuilder version documented and consistent across team
+- Follow Kubebuilder's project layout conventions strictly
+
+### CRD Design Requirements
+
+- All CRDs MUST include comprehensive documentation in Go struct comments
+- Field validation MUST use Kubebuilder markers (`+kubebuilder:validation:`)
+- Status subresources MUST be enabled for all CRDs (`+kubebuilder:subresource:status`)
+- Printer columns MUST be defined for essential fields in `kubectl get` output (`+kubebuilder:printcolumn`)
+- All CRDs MUST include proper RBAC markers for code generation (`+kubebuilder:rbac`)
+- Never manually edit generated CRD YAML - always use Kubebuilder markers and regenerate
+
+### Controller Implementation Requirements
+
+- Controllers MUST implement proper finalizer handling for resource cleanup
+- Requeue behavior MUST be explicit (return `ctrl.Result{Requeue: true}` or `RequeueAfter`)
+- Watches MUST be set up for all dependent resources
+- Controller metrics MUST be exposed via Prometheus endpoints
+- Leader election MUST be enabled for high availability deployments
+
+### Observability Requirements
+
+- Structured logging using logr interface (controller-runtime logger)
+- Log levels: Error (action required), Info (state changes), Debug (detailed flow)
+- Emit Kubernetes events for user-visible state changes
+- Include resource name, namespace, and reconciliation context in all logs
+- Never log sensitive data (tokens, credentials)
+
+## Development Workflow
+
+### Code Review Requirements
+
+- All changes require PR review from at least one maintainer
+- PRs MUST include tests for new functionality
+- PRs MUST update relevant documentation (README, CRD comments)
+- Breaking changes require migration guide and deprecation notice
+- CI MUST pass (linting, tests, builds) before merge
+
+### Quality Gates
+
+- `make test` MUST pass (unit and integration tests using envtest)
+- `make fmt` and `make vet` MUST produce no warnings
+- Generated code (`make generate`, `make manifests`) MUST be up to date and committed
+- Kubebuilder markers MUST be present and accurate for all API types
+- Helm chart MUST be updated for CRD or configuration changes
+- No decrease in test coverage for modified packages
+- `make docker-build` MUST succeed without errors
+
+### Release Process
+
+- Semantic versioning: MAJOR.MINOR.PATCH
+- MAJOR: Breaking API changes, architecture changes
+- MINOR: New features, new CRDs, backward-compatible enhancements
+- PATCH: Bug fixes, documentation updates, dependency updates
+- Releases tagged in Git with changelog in GitHub releases
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution is the authoritative governance document for the Kalypso Scheduler project. All development practices, architectural decisions, and code contributions MUST comply with the principles and standards defined herein.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### Amendment Process
+
+1. Proposed amendments MUST be documented with rationale and impact analysis
+2. Breaking changes to principles require approval from project maintainers
+3. All amendments MUST include updates to affected templates and documentation
+4. Version number MUST be incremented according to semantic versioning
+5. Amendment history MUST be preserved in the Sync Impact Report
+
+### Compliance and Enforcement
+
+- All pull requests MUST be reviewed for constitutional compliance
+- Violations MUST be addressed before merge or explicitly justified in PR description
+- CI checks enforce code generation, formatting, and testing requirements
+- Maintainers may request architectural changes for principle violations
+
+### Exception Handling
+
+When principles conflict with practical constraints, exceptions MAY be granted if:
+- The conflict is explicitly documented in the PR
+- Alternative approaches are evaluated and rejected with rationale
+- The technical debt is tracked in an issue with remediation plan
+- Project maintainers approve the exception
+
+**Version**: 1.1.0 | **Ratified**: 2025-11-11 | **Last Amended**: 2025-11-11
