@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller-manager-metrics-service
+  namespace: system
+  labels:
+    control-plane: controller-manager
+  annotations:
+    auth.metrics.controller-runtime.sigs.k8s.io: secured-by-controller-runtime
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https-metrics
+  selector:
+    control-plane: controller-manager

@@ -1,15 +1,6 @@
 controllerManager:
-  kubeRbacProxy:
-    image:
-      repository: gcr.io/kubebuilder/kube-rbac-proxy
-      tag: v0.13.1
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 5m
-        memory: 64Mi
+  # kubeRbacProxy has been removed as it's deprecated
+  # Controller-runtime's WithAuthenticationAndAuthorization feature is now used instead
   manager:
     image:
       repository: kaizentm/kalypso
@@ -28,5 +19,5 @@ metricsService:
   - name: https
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: https-metrics
   type: ClusterIP
