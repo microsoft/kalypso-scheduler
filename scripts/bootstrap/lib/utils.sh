@@ -254,38 +254,6 @@ command_exists() {
 }
 
 #######################################
-# Retry a command with exponential backoff
-# Arguments:
-#   $1 - Max attempts
-#   $2 - Initial delay in seconds
-#   $@ - Command to execute
-# Returns:
-#   Command exit code
-#######################################
-retry_with_backoff() {
-    local max_attempts="$1"
-    local delay="$2"
-    shift 2
-    local attempt=1
-    
-    while [[ $attempt -le $max_attempts ]]; do
-        if "$@"; then
-            return 0
-        fi
-        
-        if [[ $attempt -lt $max_attempts ]]; then
-            log_warning "Command failed (attempt $attempt/$max_attempts). Retrying in ${delay}s..." "retry"
-            sleep "$delay"
-            delay=$((delay * 2))
-            attempt=$((attempt + 1))
-        else
-            log_error "Command failed after $max_attempts attempts" "retry"
-            return 1
-        fi
-    done
-}
-
-#######################################
 # Wait for condition with timeout
 # Arguments:
 #   $1 - Timeout in seconds
@@ -415,18 +383,6 @@ prompt_input() {
 }
 
 #######################################
-# Generate random alphanumeric string
-# Arguments:
-#   $1 - Length (default: 8)
-# Returns:
-#   Random string
-#######################################
-random_string() {
-    local length="${1:-8}"
-    LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c "$length"
-}
-
-#######################################
 # Check if running on supported OS
 # Arguments:
 #   None
@@ -449,26 +405,8 @@ check_os_support() {
     esac
 }
 
-#######################################
-# Get script version from git tag or default
-# Arguments:
-#   None
-# Returns:
-#   Version string
-#######################################
-get_version() {
-    local version="dev"
-    
-    if git rev-parse --git-dir > /dev/null 2>&1; then
-        # Try to get version from git tag
-        version=$(git describe --tags --always 2>/dev/null || echo "dev")
-    fi
-    
-    echo "$version"
-}
-
 # Export functions for use in other scripts
 export -f log_error log_warning log_info log_debug log_success log_step
 export -f json_get_value is_empty trim to_lower to_upper
-export -f command_exists retry_with_backoff wait_for_condition
-export -f confirm prompt_input random_string
+export -f command_exists wait_for_condition
+export -f confirm prompt_input

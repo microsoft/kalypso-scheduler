@@ -67,7 +67,7 @@ Core utilities used by all other modules:
 - Logging functions (log_error, log_warning, log_info, log_debug, log_success)
 - JSON processing (json_get_value)
 - String utilities (is_empty, trim, to_lower, to_upper)
-- Command utilities (command_exists, retry_with_backoff, wait_for_condition)
+- Command utilities (command_exists, wait_for_condition)
 - User interaction (confirm, prompt_input)
 
 ### prerequisites.sh
