@@ -14,7 +14,6 @@ declare -A REQUIRED_TOOLS=(
 declare -A OPTIONAL_TOOLS=(
     ["jq"]="1.6"
     ["yq"]="4.0"
-    ["python3"]="3.6"
 )
 
 #######################################
@@ -59,9 +58,6 @@ check_tool() {
             ;;
         yq)
             version=$(yq --version 2>/dev/null | grep -oP 'version \K[0-9.]+')
-            ;;
-        python3)
-            version=$(python3 --version 2>/dev/null | grep -oP 'Python \K[0-9.]+')
             ;;
         *)
             log_debug "Unknown tool for version check: $tool" "prereq"

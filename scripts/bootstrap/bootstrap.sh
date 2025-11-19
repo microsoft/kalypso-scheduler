@@ -64,6 +64,7 @@ OPTIONS:
     -q, --quiet             Suppress non-error output
     --config FILE           Load configuration from FILE
     --non-interactive       Run in non-interactive mode (requires config file or env vars)
+    --cleanup               Clean up all resources created by bootstrap script
     
 CLUSTER OPTIONS:
     --create-cluster        Create a new AKS cluster
@@ -103,6 +104,143 @@ EOF
 }
 
 #######################################
+# Cleanup all resources created by bootstrap script
+# Globals:
+#   CLUSTER_NAME, RESOURCE_GROUP, GITHUB_TOKEN, GITHUB_USER, GITHUB_ORG
+# Arguments:
+#   None
+# Returns:
+#   0 on success
+#######################################
+cleanup_all_resources() {
+    log_info "=== Kalypso Scheduler Cleanup ===" "cleanup"
+    log_warning "This will delete all resources created by the bootstrap script" "cleanup"
+    
+    # Get configuration
+    if ! load_configuration; then
+        log_error "Configuration loading failed" "cleanup"
+        return 1
+    fi
+    
+    # Show what will be deleted
+    cat <<EOF
+
+The following resources will be deleted:
+- Kalypso Scheduler installation (Helm release)
+- Namespace: kalypso-system
+- AKS Cluster: ${CLUSTER_NAME:-N/A}
+- Resource Group: ${RESOURCE_GROUP:-N/A}
+- GitHub Repositories (if created by script):
+  - Control-plane: kalypso-control-plane
+  - GitOps: kalypso-gitops
+
+EOF
+    
+    # Confirm deletion
+    if [[ "${INTERACTIVE_MODE:-true}" == "true" ]]; then
+        if ! confirm "Are you sure you want to delete all these resources?" "n"; then
+            log_info "Cleanup cancelled" "cleanup"
+            return 0
+        fi
+    fi
+    
+    # Delete Kalypso installation
+    log_step "Uninstalling Kalypso Scheduler"
+    if helm list -n kalypso-system 2>/dev/null | grep -q kalypso-scheduler; then
+        log_info "Uninstalling Helm release..." "cleanup"
+        helm uninstall kalypso-scheduler -n kalypso-system || log_warning "Failed to uninstall Helm release" "cleanup"
+    else
+        log_info "Helm release not found, skipping" "cleanup"
+    fi
+    
+    # Delete namespace
+    if kubectl get namespace kalypso-system &> /dev/null; then
+        log_info "Deleting namespace kalypso-system..." "cleanup"
+        kubectl delete namespace kalypso-system --timeout=60s || log_warning "Failed to delete namespace" "cleanup"
+    else
+        log_info "Namespace not found, skipping" "cleanup"
+    fi
+    
+    # Delete AKS cluster
+    if [[ -n "${CLUSTER_NAME}" ]] && [[ -n "${RESOURCE_GROUP}" ]]; then
+        log_step "Deleting AKS cluster"
+        if az aks show --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" &> /dev/null; then
+            log_info "Deleting AKS cluster: $CLUSTER_NAME..." "cleanup"
+            az aks delete --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --yes --no-wait || log_warning "Failed to delete AKS cluster" "cleanup"
+        else
+            log_info "AKS cluster not found, skipping" "cleanup"
+        fi
+    fi
+    
+    # Delete resource group if it was created by the script
+    if [[ -n "${RESOURCE_GROUP}" ]]; then
+        log_step "Deleting resource group"
+        if az group show --name "$RESOURCE_GROUP" &> /dev/null; then
+            log_info "Deleting resource group: $RESOURCE_GROUP..." "cleanup"
+            log_warning "This will delete ALL resources in the resource group" "cleanup"
+            if [[ "${INTERACTIVE_MODE:-true}" == "true" ]]; then
+                if confirm "Delete resource group $RESOURCE_GROUP?" "n"; then
+                    az group delete --name "$RESOURCE_GROUP" --yes --no-wait || log_warning "Failed to delete resource group" "cleanup"
+                else
+                    log_info "Skipping resource group deletion" "cleanup"
+                fi
+            else
+                az group delete --name "$RESOURCE_GROUP" --yes --no-wait || log_warning "Failed to delete resource group" "cleanup"
+            fi
+        else
+            log_info "Resource group not found, skipping" "cleanup"
+        fi
+    fi
+    
+    # Delete GitHub repositories
+    if [[ -n "${GITHUB_TOKEN}" ]]; then
+        log_step "Deleting GitHub repositories"
+        local owner="${GITHUB_ORG:-$GITHUB_USER}"
+        
+        for repo_name in "kalypso-control-plane" "kalypso-gitops"; do
+            local response
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+                "https://api.github.com/repos/$owner/$repo_name" \
+                -H "Authorization: token $GITHUB_TOKEN")
+            
+            if [[ "$response" == "200" ]]; then
+                log_info "Deleting repository: $owner/$repo_name..." "cleanup"
+                if [[ "${INTERACTIVE_MODE:-true}" == "true" ]]; then
+                    if confirm "Delete GitHub repository $owner/$repo_name?" "n"; then
+                        curl -s -X DELETE \
+                            -H "Authorization: token $GITHUB_TOKEN" \
+                            "https://api.github.com/repos/$owner/$repo_name" > /dev/null || log_warning "Failed to delete repository" "cleanup"
+                    else
+                        log_info "Skipping repository deletion" "cleanup"
+                    fi
+                else
+                    curl -s -X DELETE \
+                        -H "Authorization: token $GITHUB_TOKEN" \
+                        "https://api.github.com/repos/$owner/$repo_name" > /dev/null || log_warning "Failed to delete repository" "cleanup"
+                fi
+            else
+                log_info "Repository $repo_name not found, skipping" "cleanup"
+            fi
+        done
+    fi
+    
+    log_success "Cleanup completed!"
+    cat <<EOF
+
+Note: Some resources may take time to fully delete:
+- AKS cluster deletion continues in the background
+- Resource group deletion continues in the background
+
+You can check the status with:
+  az aks show --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
+  az group show --name $RESOURCE_GROUP
+
+EOF
+    
+    return 0
+}
+
+#######################################
 # Main execution flow
 # Globals:
 #   LOG_LEVEL
@@ -129,6 +267,12 @@ main() {
     if [[ "${SHOW_HELP:-false}" == "true" ]]; then
         show_usage
         return 0
+    fi
+    
+    # Check if cleanup was requested
+    if [[ "${CLEANUP_MODE:-false}" == "true" ]]; then
+        cleanup_all_resources
+        return $?
     fi
     
     # Step 1: Validate prerequisites

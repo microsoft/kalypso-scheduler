@@ -155,24 +155,6 @@ wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O 
 chmod +x /usr/local/bin/yq
 ```
 
-### Python 3
-
-Used for robust JSON parsing when jq is not available.
-
-**Minimum Version**: 3.6
-
-**Installation**:
-
-macOS:
-```bash
-brew install python3
-```
-
-Ubuntu/Debian:
-```bash
-sudo apt-get install python3
-```
-
 ## Azure Prerequisites
 
 ### Azure Account

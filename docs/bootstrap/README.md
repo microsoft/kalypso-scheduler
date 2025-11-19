@@ -7,7 +7,7 @@ The Kalypso Scheduler Bootstrap Script is a comprehensive tool that helps platfo
 This script automates the setup of:
 - **AKS Cluster**: Create new or use existing Azure Kubernetes Service clusters
 - **Control-Plane Repository**: GitHub repository containing Kalypso configuration resources
-- **GitOps Repository**: GitHub repository for continuous delivery workflows
+- **GitOps Repository**: GitHub repository watched by GitOps operators on Kubernetes clusters
 - **Kalypso Scheduler**: Installation and verification of the Kalypso Scheduler operator
 
 ## Quick Start
@@ -230,9 +230,28 @@ Use `--auto-rollback` to automatically clean up resources on failure:
 ./bootstrap.sh --create-cluster --create-repos --auto-rollback
 ```
 
+### Automatic Cleanup
+
+To remove all resources created by the bootstrap script:
+
+```bash
+# Interactive cleanup (with confirmation prompts)
+./bootstrap.sh --cleanup
+
+# Non-interactive cleanup
+./bootstrap.sh --cleanup --non-interactive
+```
+
+This will delete:
+- Kalypso Scheduler installation (Helm release)
+- Namespace: kalypso-system
+- AKS cluster (if created by script)
+- Resource group (with confirmation)
+- GitHub repositories (if created by script)
+
 ### Manual Cleanup
 
-If the script fails without rollback, you can manually clean up:
+If needed, you can also manually clean up resources:
 
 ```bash
 # Delete AKS cluster

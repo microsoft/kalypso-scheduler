@@ -18,6 +18,7 @@ QUIET_MODE=false
 VERBOSE_MODE=false
 CONFIG_FILE=""
 AUTO_ROLLBACK=false
+CLEANUP_MODE=false
 
 # Cluster configuration
 CREATE_CLUSTER=false
@@ -69,6 +70,10 @@ parse_arguments() {
                 ;;
             --auto-rollback)
                 AUTO_ROLLBACK=true
+                shift
+                ;;
+            --cleanup)
+                CLEANUP_MODE=true
                 shift
                 ;;
             --create-cluster)

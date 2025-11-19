@@ -183,11 +183,8 @@ json_get_value() {
     local json="$1"
     local key="$2"
     
-    # Use Python if available for robust JSON parsing
-    if command -v python3 &> /dev/null; then
-        echo "$json" | python3 -c "import sys, json; print(json.load(sys.stdin).get('$key', ''))"
-    # Fall back to jq if available
-    elif command -v jq &> /dev/null; then
+    # Use jq if available for robust JSON parsing
+    if command -v jq &> /dev/null; then
         echo "$json" | jq -r ".$key // empty"
     else
         # Basic grep/sed fallback (not robust for complex JSON)

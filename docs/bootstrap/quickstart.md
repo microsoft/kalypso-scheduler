@@ -90,16 +90,16 @@ Create a file `workloads/hello-world.yaml`:
 apiVersion: scheduler.kalypso.io/v1alpha1
 kind: WorkloadRegistration
 metadata:
-  name: hello-world
-  namespace: kalypso-system
+  name: helloworld
+  labels:
+    type: application
+    why: sample
 spec:
-  workloadName: hello-world-app
-  sourceRepoURL: https://github.com/YOUR_USER/hello-world-app
-  sourceBranch: main
-  sourcePath: manifests
-  targets:
-    - name: dev
-      cluster: ""  # Will be scheduled by policy
+  workload:
+    repo: https://github.com/YOUR_USER/hello-world-app
+    branch: main
+    path: ./workload
+  workspace: hello-world
 ```
 
 ### 3. Commit and Push
@@ -110,27 +110,9 @@ git commit -m "Add hello-world workload"
 git push origin main
 ```
 
-### 4. Watch Kalypso Schedule the Workload
+### 4. Check GitOps Repository
 
-```bash
-# Watch for Workload creation
-kubectl get workloads -n kalypso-system --watch
-
-# Watch for DeploymentTarget creation
-kubectl get deploymenttargets -n kalypso-system --watch
-
-# Watch for Assignment creation
-kubectl get assignments -n kalypso-system --watch
-```
-
-Kalypso will:
-1. Detect the WorkloadRegistration
-2. Create a Workload resource
-3. Create DeploymentTargets based on targets
-4. Use SchedulingPolicies to create Assignments
-5. Generate manifests in the GitOps repository
-
-### 5. Check GitOps Repository
+Kalypso will create a PR with the new clusters and assignments in the GitOps repository.
 
 ```bash
 cd ~/kalypso-gitops
@@ -189,37 +171,6 @@ export GITHUB_TOKEN="xxx"
 ./bootstrap.sh --config kalypso-config.yaml --non-interactive
 ```
 
-## Next Steps
-
-### Learn More
-
-- **Scheduling Policies**: Configure how workloads are assigned to clusters
-- **Cluster Types**: Define different types of target clusters
-- **Templates**: Customize manifest generation
-- **Environments**: Set up multiple environments (dev, staging, prod)
-
-### Explore Examples
-
-Check the `example/` directory in the Kalypso repository for:
-- Sample workload registrations
-- Scheduling policy configurations
-- Cluster type definitions
-- Template examples
-
-### Customize Your Setup
-
-1. **Modify Scheduling Policies**: Edit `scheduling-policies/` in control-plane repo
-2. **Add Cluster Types**: Create new cluster type definitions
-3. **Configure Templates**: Customize manifest templates
-4. **Set Up Environments**: Add staging, production environments
-
-### Advanced Topics
-
-- **Multi-Environment Setup**: Configure dev, staging, and production
-- **Custom Templates**: Create specialized manifest templates
-- **Policy Composition**: Combine multiple scheduling policies
-- **GitOps Integration**: Configure CI/CD pipelines
-
 ## Troubleshooting
 
 ### Bootstrap fails during cluster creation
@@ -248,25 +199,23 @@ For more troubleshooting, see [troubleshooting.md](troubleshooting.md).
 
 ## Cleanup
 
-To remove everything created by the bootstrap script:
+To remove everything created by the bootstrap script, use the automatic cleanup option:
 
 ```bash
-# Delete Kalypso
-helm uninstall kalypso-scheduler -n kalypso-system
+# Automatic cleanup (interactive - will prompt for confirmation)
+cd scripts/bootstrap
+./bootstrap.sh --cleanup
 
-# Delete AKS cluster
-az aks delete \
-  --resource-group kalypso-rg \
-  --name kalypso-cluster \
-  --yes
-
-# Delete resource group (if created by script)
-az group delete --name kalypso-rg --yes
-
-# Delete GitHub repositories (via UI or gh CLI)
-gh repo delete YOUR_USER/kalypso-control-plane --yes
-gh repo delete YOUR_USER/kalypso-gitops --yes
+# Non-interactive cleanup
+./bootstrap.sh --cleanup --non-interactive
 ```
+
+This will delete:
+- Kalypso Scheduler installation (Helm release)
+- Namespace: kalypso-system
+- AKS cluster
+- Resource group (with confirmation)
+- GitHub repositories (if created by script)
 
 ## Getting Help
 
