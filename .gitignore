@@ -24,3 +24,8 @@ Dockerfile.cross
 *.swp
 *.swo
 *~
+
+# Bootstrap script artifacts
+scripts/bootstrap/.env
+scripts/bootstrap/*.log
+scripts/bootstrap/tmp/
