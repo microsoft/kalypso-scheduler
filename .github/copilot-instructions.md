@@ -1,5 +1,19 @@
 # Kalypso Scheduler - AI Coding Agent Instructions
 
+## ⚠️ CRITICAL WORKFLOW RULE
+
+**ALWAYS work step-by-step with explicit user confirmation:**
+
+1. **Before taking ANY action**, clearly describe what you plan to do
+2. **Wait for user confirmation** before proceeding
+3. **Never implement multiple steps** without getting approval for each one
+4. **Break down work** into small, reviewable chunks
+5. **Ask for guidance** when the next step is unclear
+
+This ensures the user maintains full control and understanding of all changes being made to the codebase.
+
+---
+
 ## Project Overview
 
 Kalypso Scheduler is a **Kubebuilder-based Kubernetes operator** that orchestrates workload assignments across cluster types using declarative GitOps workflows. It transforms high-level control plane abstractions (Workloads, ClusterTypes, SchedulingPolicies) into low-level manifests in GitOps repositories.
