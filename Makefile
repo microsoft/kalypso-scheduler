@@ -59,6 +59,16 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
+.PHONY: test-bootstrap
+test-bootstrap: ## Run bootstrap script smoke tests.
+	@echo "Running bootstrap script tests..."
+	@cd scripts/bootstrap && ./tests/smoke-test.sh
+
+.PHONY: lint-bootstrap
+lint-bootstrap: ## Run shellcheck on bootstrap scripts.
+	@echo "Running shellcheck on bootstrap scripts..."
+	@cd scripts/bootstrap && shellcheck bootstrap.sh lib/*.sh
+
 ##@ Build
 
 .PHONY: build
