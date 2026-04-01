@@ -1,6 +1,6 @@
 module github.com/microsoft/kalypso-scheduler
 
-go 1.24.0
+go 1.20
 
 toolchain go1.24.3
 
